@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { Plus, Filter, Zap, Map, X, Search, Activity, Tag, Calendar, MapPin, Target, RotateCcw, Download, Pencil, Trash2, Wifi, WifiOff, ChevronDown, ChevronUp, Briefcase, Maximize2, ExternalLink, Folder } from 'lucide-react';
+import { Plus, Filter, Zap, Map, X, Search, Activity, Tag, Calendar, MapPin, Target, RotateCcw, Download, Pencil, Trash2, Wifi, WifiOff, ChevronDown, ChevronUp, Briefcase, Maximize2 , ExternalLink, Folder } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -447,89 +447,50 @@ function ProjectCard({
   onDelete: () => void; 
   onView: () => void; 
 }) {
-  const projectInds = toArray(project.industry);
-  const projectLocs = toArray(project.location);
-  const projectGoals = toArray(project.goal);
-  const projectSeasons = toArray(project.seasonal);
-  const projectTypes = toArray(project.type);
   const isCustom = typeof project.watts === 'string' && (project.watts.toLowerCase().includes('quote') || isNaN(Number(project.watts)));
-  const totalTags = projectLocs.length + projectGoals.length + projectSeasons.length + projectTypes.length;
 
   return (
     <div 
       onClick={onView}
-      className="bg-white border-2 border-black rounded-lg aspect-square w-full p-4 sm:p-5 flex flex-col justify-between hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_#FFD100] cursor-pointer group select-none overflow-hidden relative"
+      className="bg-white border-2 border-black rounded-lg aspect-square w-full p-5 sm:p-6 flex flex-col justify-between hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_#FFD100] cursor-pointer group select-none relative overflow-hidden"
     >
-      <div>
-        <div className="flex items-start justify-between gap-1.5 mb-2">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {isCustom ? (
-              <span className="bg-amber-400 text-black text-[10px] sm:text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1 shadow-sm border border-black">
-                <Zap size={11} fill="currentColor" />
-                Quote
-              </span>
-            ) : (
-              <span className="bg-black text-yellow-400 text-[10px] sm:text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1 shadow-sm">
-                <Zap size={11} fill="#FFD100" />
-                {project.watts} Watts
-              </span>
-            )}
+      {/* Top Header: Watts Badge & Action Buttons */}
+      <div className="flex items-start justify-between gap-2 shrink-0">
+        {isCustom ? (
+          <span className="bg-amber-400 text-black text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded flex items-center gap-1.5 shadow-sm border border-black">
+            <Zap size={13} fill="currentColor" />
+            Quote
+          </span>
+        ) : (
+          <span className="bg-black text-yellow-400 text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded flex items-center gap-1.5 shadow-sm">
+            <Zap size={13} fill="#FFD100" />
+            {project.watts} Watts
+          </span>
+        )}
 
-            {projectInds.slice(0, 1).map(ind => (
-              <span key={ind} className="text-[10px] font-black uppercase tracking-wider bg-yellow-400 text-black px-1.5 py-0.5 rounded border border-black truncate max-w-[110px]">
-                {ind}
-              </span>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={(e) => { e.stopPropagation(); onEdit(); }}
-              title="Edit Project"
-              className="p-1 hover:bg-yellow-100 rounded text-neutral-600 hover:text-black border border-transparent hover:border-black transition-all"
-            >
-              <Pencil size={13} strokeWidth={2.5} />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); onDelete(); }}
-              title="Delete Project"
-              className="p-1 hover:bg-red-100 rounded text-neutral-400 hover:text-red-600 border border-transparent hover:border-red-300 transition-all"
-            >
-              <Trash2 size={13} strokeWidth={2.5} />
-            </button>
-          </div>
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(); }}
+            title="Edit Project"
+            className="p-1 hover:bg-yellow-100 rounded text-neutral-400 hover:text-black border border-transparent hover:border-black transition-all"
+          >
+            <Pencil size={15} strokeWidth={2.5} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            title="Delete Project"
+            className="p-1 hover:bg-red-100 rounded text-neutral-400 hover:text-red-600 border border-transparent hover:border-red-300 transition-all"
+          >
+            <Trash2 size={15} strokeWidth={2.5} />
+          </button>
         </div>
-
-        <h3 className="text-sm sm:text-base font-black text-black leading-snug uppercase tracking-tight line-clamp-2 mb-1.5 group-hover:text-yellow-600 transition-colors">
-          {project.name}
-        </h3>
-
-        <div className="flex flex-wrap gap-1 mb-2">
-          {projectTypes.slice(0, 2).map(t => (
-            <span key={t} className="text-[9px] font-black uppercase tracking-wider bg-neutral-100 text-neutral-700 px-1.5 py-0.5 rounded border border-neutral-300 truncate max-w-[120px]">
-              {t}
-            </span>
-          ))}
-          {projectTypes.length > 2 && (
-            <span className="text-[9px] font-bold text-neutral-500 self-center">
-              +{projectTypes.length - 2}
-            </span>
-          )}
-        </div>
-
-        <p className="text-[11px] sm:text-xs font-medium text-neutral-600 line-clamp-3 leading-relaxed">
-          {project.description?.trim() || <span className="italic text-neutral-400">No project description provided.</span>}
-        </p>
       </div>
 
-      <div className="pt-2 border-t border-neutral-200 flex items-center justify-between text-[10px] font-black uppercase text-neutral-500">
-        <span className="flex items-center gap-1 text-neutral-700">
-          <Tag size={11} className="text-yellow-500" />
-          {totalTags} tags
-        </span>
-        <span className="bg-yellow-400 text-black px-2 py-0.5 rounded border border-black font-black flex items-center gap-1 group-hover:bg-yellow-500 transition-all shadow-[1px_1px_0px_0px_#000000]">
-          <Maximize2 size={10} /> View All
-        </span>
+      {/* Middle: Project Name Only */}
+      <div className="my-auto py-2">
+        <h3 className="text-base sm:text-lg font-black text-black leading-snug uppercase tracking-tight group-hover:text-yellow-600 transition-colors line-clamp-4">
+          {project.name}
+        </h3>
       </div>
     </div>
   );
@@ -1113,7 +1074,7 @@ export default function App() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
               {filteredProjects.map((project) => (
                 <ProjectCard 
                   key={project.id} 
@@ -1128,6 +1089,7 @@ export default function App() {
         </section>
       </main>
 
+      
       {/* EXPANDED PROJECT DETAILS MODAL */}
       {viewingProject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setViewingProject(null)}>
@@ -1192,7 +1154,7 @@ export default function App() {
                 Project Description
               </h4>
               <div className="bg-neutral-50 border-2 border-neutral-200 rounded-lg p-3.5 text-xs sm:text-sm text-neutral-800 leading-relaxed whitespace-pre-wrap">
-                {viewingProject.description?.trim() || <span className="italic text-neutral-400">No project description provided.</span>}
+                {viewingProject.description?.trim() || ''}
               </div>
             </div>
 
@@ -1294,10 +1256,15 @@ export default function App() {
             <div className="flex justify-end gap-3 pt-6 mt-6 border-t-2 border-black">
               <button
                 type="button"
-                onClick={() => setViewingProject(null)}
-                className="px-5 py-2 text-xs font-black uppercase tracking-wider text-black bg-neutral-200 hover:bg-neutral-300 rounded border-2 border-black transition-colors"
+                onClick={() => {
+                  const p = viewingProject;
+                  setViewingProject(null);
+                  handleDeleteProject(p.id);
+                }}
+                className="px-4 py-2 text-xs font-black uppercase tracking-wider text-red-600 hover:text-white hover:bg-red-600 rounded border-2 border-red-300 hover:border-red-600 transition-all flex items-center gap-1.5"
               >
-                Close
+                <Trash2 size={14} strokeWidth={2.5} />
+                Delete Project
               </button>
               <button
                 type="button"
