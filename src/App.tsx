@@ -1019,21 +1019,22 @@ export default function App() {
 
         {/* MAIN PROJECTS SECTION */}
         <section className="flex-1 min-w-0">
-          <div className="bg-white border-2 border-black rounded-lg p-4 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-            <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto flex-1 max-w-2xl">
-              {/* Search Field */}
-              <div className="flex-1">
-                <label className="block text-[11px] font-black uppercase tracking-wider text-black mb-1 flex items-center gap-1.5">
+          <div className="bg-white border-2 border-black rounded-lg p-4 sm:p-5 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-end justify-between">
+              
+              {/* Search Field - Dominant flexible width */}
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-[11px] font-black uppercase tracking-wider text-black mb-1.5 flex items-center gap-1.5 whitespace-nowrap">
                   <Search size={13} className="text-yellow-500" /> Search Project Types & Keywords
                 </label>
                 <div className="relative">
                   <Search className="absolute left-3 top-2.5 text-neutral-400" size={15} />
                   <input 
                     type="text"
-                    placeholder="Type any keyword to match title, industry, description, or type..."
+                    placeholder="Search by title, industry, description, or keyword..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-8 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none transition-all placeholder:text-neutral-400"
+                    className="w-full pl-9 pr-8 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none transition-all placeholder:text-neutral-400 bg-white"
                   />
                   {searchQuery && (
                     <button 
@@ -1046,9 +1047,9 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Alphabetical / Order Sort Dropdown */}
-              <div className="sm:w-56">
-                <label className="block text-[11px] font-black uppercase tracking-wider text-black mb-1 flex items-center gap-1.5">
+              {/* Sort Dropdown - Compact & neatly proportioned */}
+              <div className="w-full sm:w-44 shrink-0">
+                <label className="block text-[11px] font-black uppercase tracking-wider text-black mb-1.5 flex items-center gap-1.5 whitespace-nowrap">
                   <ArrowUpDown size={13} className="text-yellow-500" /> Sort Catalog
                 </label>
                 <div className="relative">
@@ -1058,24 +1059,26 @@ export default function App() {
                     className="w-full appearance-none bg-white border-2 border-neutral-300 rounded px-3 py-2 pr-8 text-xs font-bold text-neutral-800 focus:border-black focus:outline-none cursor-pointer hover:border-neutral-400 transition-colors"
                   >
                     <option value="newest">Newest First</option>
-                    <option value="alphabetical-asc">Alphabetical (A → Z)</option>
-                    <option value="alphabetical-desc">Alphabetical (Z → A)</option>
+                    <option value="alphabetical-asc">A → Z</option>
+                    <option value="alphabetical-desc">Z → A</option>
                     <option value="oldest">Oldest First</option>
                   </select>
                   <ChevronDown size={14} className="absolute right-2.5 top-2.5 text-neutral-500 pointer-events-none" />
                 </div>
               </div>
-            </div>
 
-            <div className="flex items-center gap-2 w-full lg:w-auto justify-between lg:justify-end self-end lg:self-center">
-              <span className="text-xs font-black uppercase tracking-wider text-neutral-600">
-                Showing <span className="text-black font-extrabold text-sm">{filteredProjects.length}</span> of {projects.length} Projects
-              </span>
-              {activeFilterCount > 0 && (
-                <span className="bg-yellow-400 text-black text-[11px] font-black px-2 py-0.5 rounded-full border border-black">
-                  {activeFilterCount} Filter{activeFilterCount > 1 ? 's' : ''} Active
+              {/* Project Count & Filter Badge - Evenly balanced on the right */}
+              <div className="flex items-center gap-2.5 shrink-0 justify-between md:justify-end md:h-[38px] pt-1 md:pt-0">
+                <span className="text-xs font-black uppercase tracking-wider text-neutral-600 whitespace-nowrap">
+                  Showing <span className="text-black font-extrabold text-sm">{filteredProjects.length}</span> of {projects.length} Projects
                 </span>
-              )}
+                {activeFilterCount > 0 && (
+                  <span className="bg-yellow-400 text-black text-[11px] font-black px-2 py-0.5 rounded-full border border-black whitespace-nowrap">
+                    {activeFilterCount} Active
+                  </span>
+                )}
+              </div>
+
             </div>
           </div>
 
@@ -1118,7 +1121,7 @@ export default function App() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
               {filteredProjects.map((project) => (
                 <ProjectCard 
                   key={project.id} 
