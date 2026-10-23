@@ -59,7 +59,6 @@ const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 const db = getFirestore(app);
 
-// Helper to reliably convert string or array into string array
 const toArray = (val: string | string[] | undefined | null): string[] => {
   if (!val) return [];
   if (Array.isArray(val)) return val.filter(Boolean);
@@ -76,7 +75,6 @@ const getWattsRange = (watts: number | string): string => {
   return 'Over 50';
 };
 
-// Reusable Multi-Select Dropdown for Form
 function MultiSelectDropdown({
   label,
   options,
@@ -151,7 +149,6 @@ function MultiSelectDropdown({
         <ChevronDown size={14} className={`transform transition-transform ml-2 shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
-      {/* Selected Tag Pills */}
       {selected.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-1.5">
           {selected.map(item => (
@@ -173,7 +170,6 @@ function MultiSelectDropdown({
         </div>
       )}
 
-      {/* Dropdown Menu */}
       {isOpen && (
         <div className="absolute z-50 left-0 right-0 mt-1 bg-white border-2 border-black rounded-lg shadow-2xl p-2.5 max-h-56 overflow-y-auto">
           <div className="space-y-1 mb-2">
@@ -227,7 +223,6 @@ function MultiSelectDropdown({
   );
 }
 
-// Reusable Filter Dropdown Group for Sidebar
 function FilterDropdownGroup({
   title,
   categoryKey,
@@ -414,7 +409,6 @@ export default function App() {
     setSearchQuery('');
   };
 
-  // Multi-select matching logic
   const filteredProjects = useMemo(() => {
     return projects.filter(p => {
       const pWattsRange = getWattsRange(p.watts);
@@ -538,7 +532,7 @@ export default function App() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `wattslibrarytracker_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `watts_project_catalog_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -553,6 +547,7 @@ export default function App() {
         </div>
       )}
 
+      {/* HEADER: Updated Name */}
       <header className="bg-black text-white sticky top-0 z-30 shadow-lg border-b-4 border-yellow-400">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -562,9 +557,9 @@ export default function App() {
               </div>
               <div>
                 <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-white flex items-center gap-2">
-                  Watts Library
+                  Watts Project
                   <span className="text-xs bg-yellow-400 text-black px-2 py-0.5 rounded font-bold tracking-widest hidden sm:inline-block">
-                    TRACKER
+                    CATALOG
                   </span>
                 </h1>
               </div>
@@ -578,7 +573,7 @@ export default function App() {
 
               <button
                 onClick={exportToCSV}
-                title="Export tracker to CSV"
+                title="Export catalog to CSV"
                 className="flex items-center gap-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold py-2 px-3 rounded border border-neutral-600 text-xs uppercase tracking-wider transition-all"
               >
                 <Download size={15} />
@@ -738,7 +733,7 @@ export default function App() {
               <div className="bg-yellow-400 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 border-2 border-black">
                 <Zap size={22} className="text-black" fill="black" />
               </div>
-              <h3 className="text-base font-black uppercase tracking-wider text-black mb-1">Your Shared Tracker is Empty</h3>
+              <h3 className="text-base font-black uppercase tracking-wider text-black mb-1">Your Shared Catalog is Empty</h3>
               <p className="text-xs text-neutral-500 max-w-sm mx-auto mb-5 font-medium">
                 The cloud database is active! Click below to add the first project for your whole team to see.
               </p>
@@ -866,7 +861,7 @@ export default function App() {
                   {editingProjectId ? <Pencil size={20} className="text-black" /> : <Zap size={20} className="text-black" fill="black" />}
                 </div>
                 <h2 className="text-lg font-black uppercase text-black tracking-tight">
-                  {editingProjectId ? 'Edit Project' : 'Add Project to Tracker'}
+                  {editingProjectId ? 'Edit Project' : 'Add Project to Catalog'}
                 </h2>
               </div>
               <button 
@@ -898,7 +893,6 @@ export default function App() {
                     <label className="text-xs font-black uppercase tracking-wider text-black">
                       Watts *
                     </label>
-                    {/* CUSTOM QUOTE TOGGLE */}
                     <label className="flex items-center gap-1 cursor-pointer select-none">
                       <input
                         type="checkbox"
@@ -999,7 +993,7 @@ export default function App() {
                   className="px-5 py-2 text-xs font-black uppercase tracking-wider text-black bg-yellow-400 hover:bg-yellow-500 rounded border-2 border-black shadow-[3px_3px_0px_0px_#000000] hover:shadow-[1px_1px_0px_0px_#000000] transition-all flex items-center gap-1.5"
                 >
                   <Plus size={16} strokeWidth={3} />
-                  {editingProjectId ? 'Save Changes' : 'Add to Tracker'}
+                  {editingProjectId ? 'Save Changes' : 'Add to Catalog'}
                 </button>
               </div>
             </form>
