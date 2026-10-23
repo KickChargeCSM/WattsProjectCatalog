@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { Plus, Filter, Zap, Map, X, Search, Activity, Tag, Calendar, MapPin, Target, RotateCcw, Download, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Filter, Zap, Map, X, Search, Activity, Tag, Calendar, MapPin, Target, RotateCcw, Download, Pencil, Trash2, Wifi, WifiOff } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -14,7 +13,6 @@ interface Project {
   seasonal: string;
   type: string;
   createdAt?: any;
-  authorId?: string;
 }
 
 interface FilterState {
@@ -39,7 +37,7 @@ const REGION_KEY_DATA = [
 ];
 
 // ============================================================================
-// 🔥 FIREBASE SETUP
+// 🔥 PRE-CONFIGURED FIREBASE CREDENTIALS
 // ============================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyD5DXCgPr59ZJ_2KtvdeIu-B36LoKTeQyE",
@@ -50,16 +48,8 @@ const firebaseConfig = {
   appId: "1:516069496416:web:6b779b69566c1da8fcd505"
 };
 
-let db: any = null;
-let auth: any = null;
-
-try {
-  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-  auth = getAuth(app);
-  db = getFirestore(app);
-} catch (e) {
-  console.warn("Running in local storage fallback mode:", e);
-}
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+const db = getFirestore(app);
 
 const getWattsRange = (watts: number | string): string => {
   const w = Number(watts);
@@ -69,9 +59,9 @@ const getWattsRange = (watts: number | string): string => {
 };
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [dbError, setDbError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -103,50 +93,33 @@ export default function App() {
     type: ''
   });
 
-  // 1. Authenticate anonymously with Firebase
+  // Direct Cloud Database Sync (No login required)
   useEffect(() => {
-    if (!auth) {
-      const saved = localStorage.getItem('wattslibrarytracker_local');
-      setProjects(saved ? JSON.parse(saved) : []);
-      setIsLoading(false);
-      return;
-    }
+    const projectsRef = collection(db, 'projects');
+    const unsubscribe = onSnapshot(
+      projectsRef,
+      (snapshot) => {
+        const fetched = snapshot.docs.map(docSnapshot => ({
+          id: docSnapshot.id,
+          ...(docSnapshot.data() as Omit<Project, 'id'>)
+        })).sort((a, b) => {
+          const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt || 0);
+          const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt || 0);
+          return timeB - timeA;
+        });
+        setProjects(fetched);
+        setIsLoading(false);
+        setDbError(null);
+      },
+      (error) => {
+        console.error("Firestore error:", error);
+        setDbError(error.message);
+        setIsLoading(false);
+      }
+    );
 
-    signInAnonymously(auth).catch((err) => {
-      console.error("Anonymous authentication error:", err);
-    });
-
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-    });
     return () => unsubscribe();
   }, []);
-
-  // 2. Real-time Firebase Sync across all team members
-  useEffect(() => {
-    if (!db || !user) return;
-
-    const projectsRef = collection(db, 'projects');
-    const unsubscribe = onSnapshot(projectsRef, (snapshot) => {
-      const fetched = snapshot.docs.map(docSnapshot => ({
-        id: docSnapshot.id,
-        ...(docSnapshot.data() as Omit<Project, 'id'>)
-      })).sort((a, b) => {
-        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt || 0);
-        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt || 0);
-        return timeB - timeA;
-      });
-      setProjects(fetched);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching projects from Firestore:", error);
-      const saved = localStorage.getItem('wattslibrarytracker_local');
-      setProjects(saved ? JSON.parse(saved) : []);
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [user]);
 
   const dynamicLocations = useMemo(() => Array.from(new Set([...DEFAULT_LOCATIONS, ...projects.map(p => p.location).filter(Boolean)])), [projects]);
   const dynamicGoals = useMemo(() => Array.from(new Set([...DEFAULT_GOALS, ...projects.map(p => p.goal).filter(Boolean)])), [projects]);
@@ -231,18 +204,11 @@ export default function App() {
   };
 
   const handleDeleteProject = async (projectId: string) => {
-    if (!window.confirm("Are you sure you want to delete this project?")) return;
-
+    if (!window.confirm("Are you sure you want to permanently delete this project?")) return;
     try {
-      if (db && user) {
-        await deleteDoc(doc(db, 'projects', projectId));
-      } else {
-        const updated = projects.filter(p => p.id !== projectId);
-        setProjects(updated);
-        localStorage.setItem('wattslibrarytracker_local', JSON.stringify(updated));
-      }
-    } catch (err) {
-      console.error("Error deleting project:", err);
+      await deleteDoc(doc(db, 'projects', projectId));
+    } catch (err: any) {
+      alert("Error deleting from cloud database: " + err.message);
     }
   };
 
@@ -270,33 +236,18 @@ export default function App() {
 
     try {
       if (editingProjectId) {
-        if (db && user) {
-          await updateDoc(doc(db, 'projects', editingProjectId), payload);
-        } else {
-          const updated = projects.map(p => p.id === editingProjectId ? { ...p, ...payload } : p);
-          setProjects(updated);
-          localStorage.setItem('wattslibrarytracker_local', JSON.stringify(updated));
-        }
+        await updateDoc(doc(db, 'projects', editingProjectId), payload);
       } else {
-        const newProject = {
+        await addDoc(collection(db, 'projects'), {
           ...payload,
-          createdAt: db ? serverTimestamp() : Date.now(),
-          authorId: user ? user.uid : 'team-member'
-        };
-
-        if (db && user) {
-          await addDoc(collection(db, 'projects'), newProject);
-        } else {
-          const updated = [{ ...newProject, id: 'local-' + Date.now() } as Project, ...projects];
-          setProjects(updated);
-          localStorage.setItem('wattslibrarytracker_local', JSON.stringify(updated));
-        }
+          createdAt: serverTimestamp()
+        });
       }
 
       setIsModalOpen(false);
       setEditingProjectId(null);
-    } catch (err) {
-      console.error("Error saving project:", err);
+    } catch (err: any) {
+      alert("Error saving to cloud database: " + err.message);
     }
   };
 
@@ -304,13 +255,205 @@ export default function App() {
     if (projects.length === 0) return;
     const headers = ['Name', 'Watts', 'Location', 'Goal', 'Seasonal', 'Type', 'Description'];
     const rows = projects.map(p => [
-      `"${(p.name \vert{}\vert{} '').replace(/"/g, '""')}"`, p.watts, `"${p.location || ''}"`,
-      `"${p.goal \vert{}\vert{} ''}"`, `"${p.seasonal || ''}"`,
-      `"${p.type \vert{}\vert{} ''}"`, `"${(p.description || '').replace(/"/g, '""')}"`
+      `"${(p.name || '').replace(/"/g, '""')}"`,
+      p.watts,
+      `"${p.location || ''}"`,
+      `"${p.goal || ''}"`,
+      `"${p.seasonal || ''}"`,
+      `"${p.type || ''}"`,
+      `"${(p.description || '').replace(/"/g, '""')}"`
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `wattslibrarytracker
+    link.setAttribute('download', `wattslibrarytracker_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const FilterGroup = ({ title, categoryKey, options, icon: Icon }: { 
+    title: string; 
+    categoryKey: keyof FilterState; 
+    options: string[]; 
+    icon: any 
+  }) => (
+    <div className="mb-5 pb-4 border-b border-gray-200 last:border-b-0 last:pb-0">
+      <h3 className="text-xs font-black text-black uppercase tracking-wider mb-2.5 flex items-center gap-2">
+        <Icon size={14} className="text-yellow-500" /> {title}
+      </h3>
+      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+        {options.map((option: string) => {
+          const isChecked = filters[categoryKey].includes(option);
+          return (
+            <label 
+              key={option} 
+              className="flex items-center space-x-2.5 cursor-pointer group py-0.5 select-none"
+            >
+              <div className="relative flex items-center justify-center">
+                <input
+                  type="checkbox"
+                  className="peer sr-only"
+                  checked={isChecked}
+                  onChange={() => toggleFilter(categoryKey, option)}
+                />
+                <div className="w-4 h-4 border-2 border-black rounded-sm bg-white peer-checked:bg-yellow-400 peer-checked:border-black transition-all"></div>
+                <svg className="absolute w-2.5 h-2.5 text-black pointer-events-none opacity-0 peer-checked:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-black' : 'text-gray-600 group-hover:text-black'}`}>
+                {option}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-neutral-100 text-neutral-900 font-sans flex flex-col">
+      
+      {/* ERROR BANNER IF CLOUD IS BLOCKED */}
+      {dbError && (
+        <div className="bg-red-600 text-white font-bold text-xs py-2 px-4 text-center border-b-2 border-black flex items-center justify-center gap-2">
+          <WifiOff size={16} />
+          <span>Cloud Connection Blocked: {dbError} — (Check Step 2: Firestore Rules below)</span>
+        </div>
+      )}
+
+      <header className="bg-black text-white sticky top-0 z-30 shadow-lg border-b-4 border-yellow-400">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center gap-3">
+              <div className="bg-yellow-400 text-black p-2 rounded shadow-[2px_2px_0px_0px_#ffffff]">
+                <Zap size={22} fill="currentColor" strokeWidth={2.5} />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-white flex items-center gap-2">
+                  Watts Library
+                  <span className="text-xs bg-yellow-400 text-black px-2 py-0.5 rounded font-bold tracking-widest hidden sm:inline-block">
+                    TRACKER
+                  </span>
+                </h1>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* LIVE SYNC STATUS BADGE */}
+              <div className={`hidden sm:flex items-center gap-1.5 text-[10px] font-black uppercase px-2 py-1 rounded border ${dbError ? 'bg-red-950 text-red-300 border-red-700' : 'bg-neutral-900 text-green-400 border-neutral-700'}`}>
+                {dbError ? <WifiOff size={12} /> : <Wifi size={12} className="animate-pulse" />}
+                <span>{dbError ? 'Disconnected' : 'Cloud Live'}</span>
+              </div>
+
+              <button
+                onClick={exportToCSV}
+                title="Export tracker to CSV"
+                className="flex items-center gap-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 font-bold py-2 px-3 rounded border border-neutral-600 text-xs uppercase tracking-wider transition-all"
+              >
+                <Download size={15} />
+                <span className="hidden md:inline">Export</span>
+              </button>
+
+              <button 
+                onClick={handleOpenAddModal}
+                className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-black font-black py-2 px-3 sm:px-4 rounded border-2 border-black shadow-[3px_3px_0px_0px_#ffffff] hover:shadow-[1px_1px_0px_0px_#ffffff] transition-all text-xs sm:text-sm uppercase tracking-wider"
+              >
+                <Plus size={18} strokeWidth={3} />
+                Add Project
+              </button>
+              
+              <button 
+                onClick={() => setIsMobileFiltersOpen(!isMobileFiltersOpen)}
+                className="md:hidden bg-neutral-800 text-yellow-400 p-2 rounded border border-neutral-700"
+                aria-label="Toggle filters"
+              >
+                <Filter size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full flex flex-col md:flex-row gap-6">
+        <aside className={`md:w-72 flex-shrink-0 ${isMobileFiltersOpen ? 'block' : 'hidden'} md:block`}>
+          <div className="bg-white border-2 border-black rounded-lg p-5 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <div className="flex justify-between items-center mb-4 pb-3 border-b-2 border-black">
+              <h2 className="text-sm font-black uppercase text-black flex items-center gap-2 tracking-wider">
+                <Filter size={16} /> Filter Projects
+              </h2>
+              {(activeFilterCount > 0 || searchQuery) && (
+                <button 
+                  onClick={clearAllFilters}
+                  className="text-[11px] font-black text-red-600 hover:text-black flex items-center gap-1 uppercase tracking-wider transition-colors"
+                >
+                  <RotateCcw size={12} /> Clear All
+                </button>
+              )}
+            </div>
+
+            <FilterGroup title="Watts To Use" categoryKey="wattsRanges" options={WATTS_RANGES} icon={Activity} />
+            <FilterGroup title="Location" categoryKey="locations" options={dynamicLocations} icon={MapPin} />
+            <FilterGroup title="Goal" categoryKey="goals" options={dynamicGoals} icon={Target} />
+            <FilterGroup title="Seasonal" categoryKey="seasonals" options={dynamicSeasonals} icon={Calendar} />
+            <FilterGroup title="Type" categoryKey="types" options={dynamicTypes} icon={Tag} />
+          </div>
+
+          <div className="bg-black text-white rounded-lg p-5 border-2 border-yellow-400 shadow-[4px_4px_0px_0px_#FFD100]">
+            <h2 className="text-sm font-black uppercase text-yellow-400 flex items-center gap-2 mb-3 tracking-wider">
+              <Map size={16} /> Region Key
+            </h2>
+            <div className="space-y-3 text-xs leading-relaxed">
+              {REGION_KEY_DATA.map(item => (
+                <div key={item.region} className="border-b border-neutral-800 last:border-b-0 pb-2 last:pb-0">
+                  <span className="text-yellow-400 font-black uppercase block tracking-wider">{item.region}:</span>
+                  <span className="text-neutral-300 font-medium">{item.desc}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        <section className="flex-1 min-w-0">
+          <div className="bg-white border-2 border-black rounded-lg p-4 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col sm:flex-row gap-4 items-center justify-between">
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-2.5 text-neutral-400" size={16} />
+              <input 
+                type="text"
+                placeholder="Search projects, tags, descriptions..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-8 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none transition-all"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-2.5 text-neutral-400 hover:text-black"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+              <span className="text-xs font-black uppercase tracking-wider text-neutral-600">
+                Showing <span className="text-black font-extrabold text-sm">{filteredProjects.length}</span> of {projects.length} Projects
+              </span>
+              {activeFilterCount > 0 && (
+                <span className="bg-yellow-400 text-black text-[11px] font-black px-2 py-0.5 rounded-full border border-black">
+                  {activeFilterCount} Filter{activeFilterCount > 1 ? 's' : ''} Active
+                </span>
+              )}
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="bg-white border-2 border-black rounded-lg p-12 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <Zap className="animate-bounce mx-auto text-yellow-400 mb-2" size={32} />
+              <p className="text-sm font-bold uppercase tracking-wider">Connecting to Cloud Database...</p>
+            </div>
+          ) : projects.length === 0 ? (
+            <div className="bg-white border-
