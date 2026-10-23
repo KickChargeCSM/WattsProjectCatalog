@@ -316,12 +316,10 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-neutral-100 text-neutral-900 font-sans flex flex-col">
-      
-      {/* ERROR BANNER IF CLOUD IS BLOCKED */}
       {dbError && (
         <div className="bg-red-600 text-white font-bold text-xs py-2 px-4 text-center border-b-2 border-black flex items-center justify-center gap-2">
           <WifiOff size={16} />
-          <span>Cloud Connection Blocked: {dbError} — (Check Step 2: Firestore Rules below)</span>
+          <span>Cloud Connection Blocked: {dbError}</span>
         </div>
       )}
 
@@ -343,7 +341,6 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
-              {/* LIVE SYNC STATUS BADGE */}
               <div className={`hidden sm:flex items-center gap-1.5 text-[10px] font-black uppercase px-2 py-1 rounded border ${dbError ? 'bg-red-950 text-red-300 border-red-700' : 'bg-neutral-900 text-green-400 border-neutral-700'}`}>
                 {dbError ? <WifiOff size={12} /> : <Wifi size={12} className="animate-pulse" />}
                 <span>{dbError ? 'Disconnected' : 'Cloud Live'}</span>
@@ -456,4 +453,290 @@ export default function App() {
               <p className="text-sm font-bold uppercase tracking-wider">Connecting to Cloud Database...</p>
             </div>
           ) : projects.length === 0 ? (
-            <div className="bg-white border-
+            <div className="bg-white border-2 border-black rounded-lg p-12 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <div className="bg-yellow-400 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 border-2 border-black">
+                <Zap size={22} className="text-black" fill="black" />
+              </div>
+              <h3 className="text-base font-black uppercase tracking-wider text-black mb-1">Your Shared Tracker is Empty</h3>
+              <p className="text-xs text-neutral-500 max-w-sm mx-auto mb-5 font-medium">
+                The cloud database is active! Click below to add the first project for your whole team to see.
+              </p>
+              <button
+                onClick={handleOpenAddModal}
+                className="bg-yellow-400 text-black text-xs font-black uppercase tracking-wider px-4 py-2.5 rounded border-2 border-black shadow-[3px_3px_0px_0px_#000000] hover:shadow-[1px_1px_0px_0px_#000000] transition-all inline-flex items-center gap-1.5"
+              >
+                <Plus size={16} strokeWidth={3} />
+                Add Your First Project
+              </button>
+            </div>
+          ) : filteredProjects.length === 0 ? (
+            <div className="bg-white border-2 border-black rounded-lg p-12 text-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+              <div className="bg-yellow-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 border border-yellow-400">
+                <Filter size={20} className="text-black" />
+              </div>
+              <h3 className="text-base font-black uppercase tracking-wider text-black mb-1">No Matching Projects</h3>
+              <p className="text-xs text-neutral-500 max-w-sm mx-auto mb-4 font-medium">
+                Try deselecting some filters or clearing your search term.
+              </p>
+              <button
+                onClick={clearAllFilters}
+                className="bg-black text-white text-xs font-black uppercase tracking-wider px-4 py-2 rounded border-2 border-yellow-400 hover:bg-neutral-900 transition-colors"
+              >
+                Reset All Filters
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+              {filteredProjects.map((project) => (
+                <div 
+                  key={project.id}
+                  className="bg-white border-2 border-black rounded-lg flex flex-col justify-between p-5 hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_#FFD100]"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="bg-black text-yellow-400 text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded flex items-center gap-1.5 shadow-sm">
+                          <Zap size={14} fill="#FFD100" />
+                          {project.watts} Watts
+                        </span>
+                        <span className="text-[11px] font-black uppercase tracking-wider bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded border border-neutral-300">
+                          {project.type}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleOpenEditModal(project)}
+                          title="Edit Project"
+                          className="p-1 hover:bg-yellow-100 rounded text-neutral-600 hover:text-black border border-transparent hover:border-black transition-all"
+                        >
+                          <Pencil size={14} strokeWidth={2.5} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProject(project.id)}
+                          title="Delete Project"
+                          className="p-1 hover:bg-red-100 rounded text-neutral-400 hover:text-red-600 border border-transparent hover:border-red-300 transition-all"
+                        >
+                          <Trash2 size={14} strokeWidth={2.5} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <h3 className="text-base font-black text-black leading-snug mb-2 uppercase tracking-tight">
+                      {project.name}
+                    </h3>
+
+                    <p className="text-xs font-medium text-neutral-600 line-clamp-3 mb-4 leading-relaxed">
+                      {project.description || "No project description provided."}
+                    </p>
+                  </div>
+
+                  <div className="pt-3 border-t border-neutral-200">
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase bg-yellow-100 text-yellow-900 px-2 py-0.5 rounded border border-yellow-300">
+                        <MapPin size={10} /> {project.location}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase bg-neutral-100 text-neutral-800 px-2 py-0.5 rounded border border-neutral-300">
+                        <Target size={10} /> {project.goal}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase bg-neutral-100 text-neutral-800 px-2 py-0.5 rounded border border-neutral-300">
+                        <Calendar size={10} /> {project.seasonal}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-white border-4 border-black rounded-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto shadow-[8px_8px_0px_0px_#FFD100]">
+            <div className="flex justify-between items-center pb-4 mb-4 border-b-2 border-black">
+              <div className="flex items-center gap-2">
+                <div className="bg-yellow-400 p-1.5 rounded border-2 border-black">
+                  {editingProjectId ? <Pencil size={20} className="text-black" /> : <Zap size={20} className="text-black" fill="black" />}
+                </div>
+                <h2 className="text-lg font-black uppercase text-black tracking-tight">
+                  {editingProjectId ? 'Edit Project' : 'Add Project to Tracker'}
+                </h2>
+              </div>
+              <button 
+                onClick={() => { setIsModalOpen(false); setEditingProjectId(null); }}
+                className="text-neutral-500 hover:text-black p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProject} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-black uppercase tracking-wider mb-1 text-black">
+                    Project Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g., Electric Van Wrap Recruitment Campaign"
+                    className="w-full px-3 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider mb-1 text-black">
+                    Watts Needed *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    placeholder="e.g., 45"
+                    className="w-full px-3 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none"
+                    value={formData.watts}
+                    onChange={(e) => setFormData({ ...formData, watts: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-black uppercase tracking-wider mb-1 text-black">
+                  Short Description *
+                </label>
+                <textarea
+                  required
+                  rows="2"
+                  placeholder="Outline who this targets, key deliverables, and campaign intent..."
+                  className="w-full px-3 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider mb-1 text-black">
+                    Location / Region *
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none bg-white mb-2"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  >
+                    {dynamicLocations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                    <option value="ADD_NEW" className="font-black text-amber-600 bg-yellow-50">+ Create New Location...</option>
+                  </select>
+                  {formData.location === 'ADD_NEW' && (
+                    <input 
+                      type="text"
+                      required
+                      placeholder="Type new region/location name..."
+                      className="w-full px-3 py-2 text-xs font-bold border-2 border-yellow-400 bg-yellow-50 rounded focus:border-black focus:outline-none"
+                      value={customInputs.location}
+                      onChange={(e) => setCustomInputs({ ...customInputs, location: e.target.value })}
+                    />
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider mb-1 text-black">
+                    Goal *
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none bg-white mb-2"
+                    value={formData.goal}
+                    onChange={(e) => setFormData({ ...formData, goal: e.target.value })}
+                  >
+                    {dynamicGoals.map(g => <option key={g} value={g}>{g}</option>)}
+                    <option value="ADD_NEW" className="font-black text-amber-600 bg-yellow-50">+ Create New Goal...</option>
+                  </select>
+                  {formData.goal === 'ADD_NEW' && (
+                    <input 
+                      type="text"
+                      required
+                      placeholder="Type new goal name..."
+                      className="w-full px-3 py-2 text-xs font-bold border-2 border-yellow-400 bg-yellow-50 rounded focus:border-black focus:outline-none"
+                      value={customInputs.goal}
+                      onChange={(e) => setCustomInputs({ ...customInputs, goal: e.target.value })}
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider mb-1 text-black">
+                    Seasonal *
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none bg-white mb-2"
+                    value={formData.seasonal}
+                    onChange={(e) => setFormData({ ...formData, seasonal: e.target.value })}
+                  >
+                    {dynamicSeasonals.map(s => <option key={s} value={s}>{s}</option>)}
+                    <option value="ADD_NEW" className="font-black text-amber-600 bg-yellow-50">+ Create New Season...</option>
+                  </select>
+                  {formData.seasonal === 'ADD_NEW' && (
+                    <input 
+                      type="text"
+                      required
+                      placeholder="Type new seasonal category..."
+                      className="w-full px-3 py-2 text-xs font-bold border-2 border-yellow-400 bg-yellow-50 rounded focus:border-black focus:outline-none"
+                      value={customInputs.seasonal}
+                      onChange={(e) => setCustomInputs({ ...customInputs, seasonal: e.target.value })}
+                    />
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider mb-1 text-black">
+                    Project Type *
+                  </label>
+                  <select
+                    className="w-full px-3 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none bg-white mb-2"
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  >
+                    {dynamicTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                    <option value="ADD_NEW" className="font-black text-amber-600 bg-yellow-50">+ Create New Type...</option>
+                  </select>
+                  {formData.type === 'ADD_NEW' && (
+                    <input 
+                      type="text"
+                      required
+                      placeholder="Type new project type..."
+                      className="w-full px-3 py-2 text-xs font-bold border-2 border-yellow-400 bg-yellow-50 rounded focus:border-black focus:outline-none"
+                      value={customInputs.type}
+                      onChange={(e) => setCustomInputs({ ...customInputs, type: e.target.value })}
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t-2 border-black">
+                <button
+                  type="button"
+                  onClick={() => { setIsModalOpen(false); setEditingProjectId(null); }}
+                  className="px-4 py-2 text-xs font-black uppercase tracking-wider text-black bg-neutral-200 hover:bg-neutral-300 rounded border-2 border-black transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-black uppercase tracking-wider text-black bg-yellow-400 hover:bg-yellow-500 rounded border-2 border-black shadow-[3px_3px_0px_0px_#000000] hover:shadow-[1px_1px_0px_0px_#000000] transition-all flex items-center gap-1.5"
+                >
+                  <Plus size={16} strokeWidth={3} />
+                  {editingProjectId ? 'Save Changes' : 'Add to Tracker'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
