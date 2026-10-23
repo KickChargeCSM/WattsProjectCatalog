@@ -1,22 +1,32 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { Plus, Filter, Zap, Map, X, Search, Activity, Tag, Calendar, MapPin, Target, RotateCcw, Download, Pencil, Trash2, Wifi, WifiOff } from 'lucide-react';
+import { Plus, Filter, Zap, Map, X, Search, Activity, Tag, Calendar, MapPin, Target, RotateCcw, Download, Pencil, Trash2, Wifi, WifiOff, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface Project {
   id: string;
   name: string;
   description: string;
   watts: number;
-  location: string;
-  goal: string;
-  seasonal: string;
-  type: string;
+  location: string | string[];
+  goal: string | string[];
+  seasonal: string | string[];
+  type: string | string[];
   createdAt?: any;
 }
 
 interface FilterState {
   wattsRanges: string[];
+  locations: string[];
+  goals: string[];
+  seasonals: string[];
+  types: string[];
+}
+
+interface FormDataState {
+  name: string;
+  description: string;
+  watts: string;
   locations: string[];
   goals: string[];
   seasonals: string[];
@@ -36,9 +46,6 @@ const REGION_KEY_DATA = [
   { region: 'West', desc: 'Mountain (AZ, CO, ID, MT, NV, NM, UT, WY) & Pacific (AK, CA, HI, OR, WA).' }
 ];
 
-// ============================================================================
-// 🔥 PRE-CONFIGURED FIREBASE CREDENTIALS
-// ============================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyD5DXCgPr59ZJ_2KtvdeIu-B36LoKTeQyE",
   authDomain: "watts-library-tracker.firebaseapp.com",
@@ -51,12 +58,265 @@ const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 const db = getFirestore(app);
 
+// Helper to reliably convert string or array into string array
+const toArray = (val: string | string[] | undefined | null): string[] => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.filter(Boolean);
+  return [val].filter(Boolean);
+};
+
 const getWattsRange = (watts: number | string): string => {
   const w = Number(watts);
   if (isNaN(w) || w < 25) return 'Under 25';
   if (w >= 25 && w <= 50) return '25-50';
   return 'Over 50';
 };
+
+// Reusable Multi-Select Dropdown for Form
+function MultiSelectDropdown({
+  label,
+  options,
+  selected,
+  onChange,
+  icon: Icon,
+  placeholder
+}: {
+  label: string;
+  options: string[];
+  selected: string[];
+  onChange: (items: string[]) => void;
+  icon: any;
+  placeholder: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [customInput, setCustomInput] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const toggleOption = (opt: string) => {
+    if (selected.includes(opt)) {
+      onChange(selected.filter(item => item !== opt));
+    } else {
+      onChange([...selected, opt]);
+    }
+  };
+
+  const handleAddCustom = (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = customInput.trim();
+    if (val && !selected.includes(val)) {
+      onChange([...selected, val]);
+      setCustomInput('');
+    }
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <div className="flex items-center justify-between mb-1">
+        <label className="text-xs font-black uppercase tracking-wider text-black flex items-center gap-1.5">
+          <Icon size={13} className="text-yellow-500" /> {label} *
+        </label>
+        {selected.length > 0 && (
+          <span className="text-[10px] font-bold bg-yellow-400 text-black px-1.5 py-0.2 rounded border border-black">
+            {selected.length} selected
+          </span>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full text-left px-3 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none bg-white flex items-center justify-between shadow-sm hover:border-neutral-400 transition-colors"
+      >
+        <span className="truncate text-neutral-800">
+          {selected.length === 0 ? (
+            <span className="text-neutral-400 font-normal">{placeholder}</span>
+          ) : (
+            selected.join(', ')
+          )}
+        </span>
+        <ChevronDown size={14} className={`transform transition-transform ml-2 shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {/* Selected Tag Pills */}
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {selected.map(item => (
+            <span
+              key={item}
+              className="inline-flex items-center gap-1 text-[11px] font-bold bg-yellow-100 text-neutral-900 border border-yellow-400 px-2 py-0.5 rounded"
+            >
+              {item}
+              <button
+                type="button"
+                onClick={() => toggleOption(item)}
+                className="hover:text-red-600 font-black ml-0.5 text-xs leading-none"
+                title={`Remove ${item}`}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Dropdown Menu */}
+      {isOpen && (
+        <div className="absolute z-50 left-0 right-0 mt-1 bg-white border-2 border-black rounded-lg shadow-2xl p-2.5 max-h-56 overflow-y-auto">
+          <div className="space-y-1 mb-2">
+            {options.map(opt => {
+              const isChecked = selected.includes(opt);
+              return (
+                <label
+                  key={opt}
+                  className="flex items-center space-x-2 text-xs font-bold p-1 rounded hover:bg-neutral-100 cursor-pointer select-none"
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => toggleOption(opt)}
+                    className="rounded border-neutral-400 text-yellow-400 focus:ring-0"
+                  />
+                  <span className={isChecked ? 'text-black' : 'text-neutral-700'}>{opt}</span>
+                </label>
+              );
+            })}
+          </div>
+
+          <div className="pt-2 border-t border-neutral-200">
+            <div className="flex gap-1.5">
+              <input
+                type="text"
+                placeholder="+ Add custom option..."
+                value={customInput}
+                onChange={(e) => setCustomInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddCustom(e);
+                  }
+                }}
+                className="flex-1 px-2 py-1 text-xs border border-neutral-300 rounded font-semibold focus:outline-none focus:border-black"
+              />
+              <button
+                type="button"
+                onClick={handleAddCustom}
+                disabled={!customInput.trim()}
+                className="bg-black text-white text-[11px] font-bold px-2 py-1 rounded disabled:opacity-40 hover:bg-neutral-800"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Reusable Filter Dropdown Group for Sidebar
+function FilterDropdownGroup({
+  title,
+  categoryKey,
+  options,
+  icon: Icon,
+  selectedList,
+  onToggle,
+  onSelectAll,
+  onClear
+}: {
+  title: string;
+  categoryKey: keyof FilterState;
+  options: string[];
+  icon: any;
+  selectedList: string[];
+  onToggle: (cat: keyof FilterState, val: string) => void;
+  onSelectAll: (cat: keyof FilterState, allOptions: string[]) => void;
+  onClear: (cat: keyof FilterState) => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  return (
+    <div className="mb-4 pb-3 border-b border-gray-200 last:border-b-0 last:pb-0">
+      <div className="flex items-center justify-between mb-2">
+        <button
+          type="button"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="text-xs font-black text-black uppercase tracking-wider flex items-center gap-2 hover:text-neutral-700 select-none text-left"
+        >
+          <Icon size={14} className="text-yellow-500" />
+          <span>{title}</span>
+          {selectedList.length > 0 && (
+            <span className="text-[10px] bg-yellow-400 text-black px-1.5 py-0.2 rounded font-black border border-black">
+              {selectedList.length}
+            </span>
+          )}
+          {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+
+        <div className="flex items-center gap-1.5 text-[10px] font-bold">
+          {selectedList.length !== options.length && (
+            <button
+              type="button"
+              onClick={() => onSelectAll(categoryKey, options)}
+              className="text-neutral-500 hover:text-black hover:underline"
+            >
+              All
+            </button>
+          )}
+          {selectedList.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onClear(categoryKey)}
+              className="text-red-500 hover:text-red-700 hover:underline"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 mt-2">
+          {options.map((option: string) => {
+            const isChecked = selectedList.includes(option);
+            return (
+              <label 
+                key={option} 
+                className="flex items-center space-x-2.5 cursor-pointer group py-0.5 select-none"
+              >
+                <div className="relative flex items-center justify-center">
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={isChecked}
+                    onChange={() => onToggle(categoryKey, option)}
+                  />
+                  <div className="w-4 h-4 border-2 border-black rounded-sm bg-white peer-checked:bg-yellow-400 peer-checked:border-black transition-all"></div>
+                  <svg className="absolute w-2.5 h-2.5 text-black pointer-events-none opacity-0 peer-checked:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-black' : 'text-gray-600 group-hover:text-black'}`}>
+                  {option}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function App() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -76,24 +336,17 @@ export default function App() {
     types: []
   });
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormDataState>({
     name: '',
     description: '',
     watts: '',
-    location: DEFAULT_LOCATIONS[0],
-    goal: DEFAULT_GOALS[0],
-    seasonal: DEFAULT_SEASONALS[0],
-    type: DEFAULT_TYPES[0]
+    locations: [DEFAULT_LOCATIONS[0]],
+    goals: [DEFAULT_GOALS[0]],
+    seasonals: [DEFAULT_SEASONALS[0]],
+    types: [DEFAULT_TYPES[0]]
   });
 
-  const [customInputs, setCustomInputs] = useState({
-    location: '',
-    goal: '',
-    seasonal: '',
-    type: ''
-  });
-
-  // Direct Cloud Database Sync (No login required)
+  // Direct Cloud Database Sync
   useEffect(() => {
     const projectsRef = collection(db, 'projects');
     const unsubscribe = onSnapshot(
@@ -121,10 +374,10 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const dynamicLocations = useMemo(() => Array.from(new Set([...DEFAULT_LOCATIONS, ...projects.map(p => p.location).filter(Boolean)])), [projects]);
-  const dynamicGoals = useMemo(() => Array.from(new Set([...DEFAULT_GOALS, ...projects.map(p => p.goal).filter(Boolean)])), [projects]);
-  const dynamicSeasonals = useMemo(() => Array.from(new Set([...DEFAULT_SEASONALS, ...projects.map(p => p.seasonal).filter(Boolean)])), [projects]);
-  const dynamicTypes = useMemo(() => Array.from(new Set([...DEFAULT_TYPES, ...projects.map(p => p.type).filter(Boolean)])), [projects]);
+  const dynamicLocations = useMemo(() => Array.from(new Set([...DEFAULT_LOCATIONS, ...projects.flatMap(p => toArray(p.location))])).filter(Boolean), [projects]);
+  const dynamicGoals = useMemo(() => Array.from(new Set([...DEFAULT_GOALS, ...projects.flatMap(p => toArray(p.goal))])).filter(Boolean), [projects]);
+  const dynamicSeasonals = useMemo(() => Array.from(new Set([...DEFAULT_SEASONALS, ...projects.flatMap(p => toArray(p.seasonal))])).filter(Boolean), [projects]);
+  const dynamicTypes = useMemo(() => Array.from(new Set([...DEFAULT_TYPES, ...projects.flatMap(p => toArray(p.type))])).filter(Boolean), [projects]);
 
   const toggleFilter = (category: keyof FilterState, value: string) => {
     setFilters(prev => {
@@ -135,6 +388,14 @@ export default function App() {
         return { ...prev, [category]: [...currentList, value] };
       }
     });
+  };
+
+  const selectAllFilter = (category: keyof FilterState, allOptions: string[]) => {
+    setFilters(prev => ({ ...prev, [category]: [...allOptions] }));
+  };
+
+  const clearCategoryFilter = (category: keyof FilterState) => {
+    setFilters(prev => ({ ...prev, [category]: [] }));
   };
 
   const clearAllFilters = () => {
@@ -148,24 +409,24 @@ export default function App() {
     setSearchQuery('');
   };
 
+  // Multi-select matching logic (Project matches if it has ANY of the selected tags)
   const filteredProjects = useMemo(() => {
     return projects.filter(p => {
       const pWattsRange = getWattsRange(p.watts);
+      const pLocs = toArray(p.location);
+      const pGoals = toArray(p.goal);
+      const pSeasons = toArray(p.seasonal);
+      const pTypes = toArray(p.type);
       
       const matchWatts = filters.wattsRanges.length === 0 || filters.wattsRanges.includes(pWattsRange);
-      const matchLocation = filters.locations.length === 0 || filters.locations.includes(p.location);
-      const matchGoal = filters.goals.length === 0 || filters.goals.includes(p.goal);
-      const matchSeasonal = filters.seasonals.length === 0 || filters.seasonals.includes(p.seasonal);
-      const matchType = filters.types.length === 0 || filters.types.includes(p.type);
+      const matchLocation = filters.locations.length === 0 || pLocs.some(loc => filters.locations.includes(loc));
+      const matchGoal = filters.goals.length === 0 || pGoals.some(g => filters.goals.includes(g));
+      const matchSeasonal = filters.seasonals.length === 0 || pSeasons.some(s => filters.seasonals.includes(s));
+      const matchType = filters.types.length === 0 || pTypes.some(t => filters.types.includes(t));
 
       const q = searchQuery.toLowerCase().trim();
-      const matchSearch = !q || (
-        (p.name && p.name.toLowerCase().includes(q)) ||
-        (p.description && p.description.toLowerCase().includes(q)) ||
-        (p.type && p.type.toLowerCase().includes(q)) ||
-        (p.goal && p.goal.toLowerCase().includes(q)) ||
-        (p.location && p.location.toLowerCase().includes(q))
-      );
+      const searchableText = `${p.name || ''} ${p.description || ''} ${pLocs.join(' ')} ${pGoals.join(' ')} ${pSeasons.join(' ')} ${pTypes.join(' ')}`.toLowerCase();
+      const matchSearch = !q || searchableText.includes(q);
 
       return matchWatts && matchLocation && matchGoal && matchSeasonal && matchType && matchSearch;
     });
@@ -179,12 +440,11 @@ export default function App() {
       name: '',
       description: '',
       watts: '',
-      location: DEFAULT_LOCATIONS[0],
-      goal: DEFAULT_GOALS[0],
-      seasonal: DEFAULT_SEASONALS[0],
-      type: DEFAULT_TYPES[0]
+      locations: [DEFAULT_LOCATIONS[0]],
+      goals: [DEFAULT_GOALS[0]],
+      seasonals: [DEFAULT_SEASONALS[0]],
+      types: [DEFAULT_TYPES[0]]
     });
-    setCustomInputs({ location: '', goal: '', seasonal: '', type: '' });
     setIsModalOpen(true);
   };
 
@@ -194,12 +454,11 @@ export default function App() {
       name: project.name || '',
       description: project.description || '',
       watts: String(project.watts || ''),
-      location: project.location || DEFAULT_LOCATIONS[0],
-      goal: project.goal || DEFAULT_GOALS[0],
-      seasonal: project.seasonal || DEFAULT_SEASONALS[0],
-      type: project.type || DEFAULT_TYPES[0]
+      locations: toArray(project.location),
+      goals: toArray(project.goal),
+      seasonals: toArray(project.seasonal),
+      types: toArray(project.type)
     });
-    setCustomInputs({ location: '', goal: '', seasonal: '', type: '' });
     setIsModalOpen(true);
   };
 
@@ -215,12 +474,15 @@ export default function App() {
   const handleSaveProject = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const finalLocation = (formData.location === 'ADD_NEW' ? customInputs.location : formData.location).trim();
-    const finalGoal = (formData.goal === 'ADD_NEW' ? customInputs.goal : formData.goal).trim();
-    const finalSeasonal = (formData.seasonal === 'ADD_NEW' ? customInputs.seasonal : formData.seasonal).trim();
-    const finalType = (formData.type === 'ADD_NEW' ? customInputs.type : formData.type).trim();
-
-    if (!formData.name.trim() || !formData.watts || !finalLocation || !finalGoal || !finalSeasonal || !finalType) {
+    if (
+      !formData.name.trim() || 
+      !formData.watts || 
+      formData.locations.length === 0 || 
+      formData.goals.length === 0 || 
+      formData.seasonals.length === 0 || 
+      formData.types.length === 0
+    ) {
+      alert("Please fill in all required fields and select at least one option for Location, Goal, Seasonal, and Type.");
       return;
     }
 
@@ -228,10 +490,10 @@ export default function App() {
       name: formData.name.trim(),
       description: formData.description.trim(),
       watts: Number(formData.watts),
-      location: finalLocation,
-      goal: finalGoal,
-      seasonal: finalSeasonal,
-      type: finalType,
+      location: formData.locations,
+      goal: formData.goals,
+      seasonal: formData.seasonals,
+      type: formData.types,
     };
 
     try {
@@ -253,14 +515,14 @@ export default function App() {
 
   const exportToCSV = () => {
     if (projects.length === 0) return;
-    const headers = ['Name', 'Watts', 'Location', 'Goal', 'Seasonal', 'Type', 'Description'];
+    const headers = ['Name', 'Watts', 'Locations', 'Goals', 'Seasonals', 'Types', 'Description'];
     const rows = projects.map(p => [
       `"${(p.name || '').replace(/"/g, '""')}"`,
       p.watts,
-      `"${p.location || ''}"`,
-      `"${p.goal || ''}"`,
-      `"${p.seasonal || ''}"`,
-      `"${p.type || ''}"`,
+      `"${toArray(p.location).join('; ')}"`,
+      `"${toArray(p.goal).join('; ')}"`,
+      `"${toArray(p.seasonal).join('; ')}"`,
+      `"${toArray(p.type).join('; ')}"`,
       `"${(p.description || '').replace(/"/g, '""')}"`
     ]);
 
@@ -273,46 +535,6 @@ export default function App() {
     link.click();
     document.body.removeChild(link);
   };
-
-  const FilterGroup = ({ title, categoryKey, options, icon: Icon }: { 
-    title: string; 
-    categoryKey: keyof FilterState; 
-    options: string[]; 
-    icon: any 
-  }) => (
-    <div className="mb-5 pb-4 border-b border-gray-200 last:border-b-0 last:pb-0">
-      <h3 className="text-xs font-black text-black uppercase tracking-wider mb-2.5 flex items-center gap-2">
-        <Icon size={14} className="text-yellow-500" /> {title}
-      </h3>
-      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-        {options.map((option: string) => {
-          const isChecked = filters[categoryKey].includes(option);
-          return (
-            <label 
-              key={option} 
-              className="flex items-center space-x-2.5 cursor-pointer group py-0.5 select-none"
-            >
-              <div className="relative flex items-center justify-center">
-                <input
-                  type="checkbox"
-                  className="peer sr-only"
-                  checked={isChecked}
-                  onChange={() => toggleFilter(categoryKey, option)}
-                />
-                <div className="w-4 h-4 border-2 border-black rounded-sm bg-white peer-checked:bg-yellow-400 peer-checked:border-black transition-all"></div>
-                <svg className="absolute w-2.5 h-2.5 text-black pointer-events-none opacity-0 peer-checked:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <span className={`text-xs font-bold transition-colors ${isChecked ? 'text-black' : 'text-gray-600 group-hover:text-black'}`}>
-                {option}
-              </span>
-            </label>
-          );
-        })}
-      </div>
-    </div>
-  );
 
   return (
     <div className="min-h-screen bg-neutral-100 text-neutral-900 font-sans flex flex-col">
@@ -376,6 +598,7 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full flex flex-col md:flex-row gap-6">
+        {/* SIDEBAR: Filters & Region Key */}
         <aside className={`md:w-72 flex-shrink-0 ${isMobileFiltersOpen ? 'block' : 'hidden'} md:block`}>
           <div className="bg-white border-2 border-black rounded-lg p-5 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             <div className="flex justify-between items-center mb-4 pb-3 border-b-2 border-black">
@@ -387,16 +610,65 @@ export default function App() {
                   onClick={clearAllFilters}
                   className="text-[11px] font-black text-red-600 hover:text-black flex items-center gap-1 uppercase tracking-wider transition-colors"
                 >
-                  <RotateCcw size={12} /> Clear All
+                  <RotateCcw size={12} /> Reset
                 </button>
               )}
             </div>
 
-            <FilterGroup title="Watts To Use" categoryKey="wattsRanges" options={WATTS_RANGES} icon={Activity} />
-            <FilterGroup title="Location" categoryKey="locations" options={dynamicLocations} icon={MapPin} />
-            <FilterGroup title="Goal" categoryKey="goals" options={dynamicGoals} icon={Target} />
-            <FilterGroup title="Seasonal" categoryKey="seasonals" options={dynamicSeasonals} icon={Calendar} />
-            <FilterGroup title="Type" categoryKey="types" options={dynamicTypes} icon={Tag} />
+            <FilterDropdownGroup 
+              title="Watts To Use" 
+              categoryKey="wattsRanges" 
+              options={WATTS_RANGES} 
+              icon={Activity}
+              selectedList={filters.wattsRanges}
+              onToggle={toggleFilter}
+              onSelectAll={selectAllFilter}
+              onClear={clearCategoryFilter}
+            />
+
+            <FilterDropdownGroup 
+              title="Location" 
+              categoryKey="locations" 
+              options={dynamicLocations} 
+              icon={MapPin}
+              selectedList={filters.locations}
+              onToggle={toggleFilter}
+              onSelectAll={selectAllFilter}
+              onClear={clearCategoryFilter}
+            />
+
+            <FilterDropdownGroup 
+              title="Goal" 
+              categoryKey="goals" 
+              options={dynamicGoals} 
+              icon={Target}
+              selectedList={filters.goals}
+              onToggle={toggleFilter}
+              onSelectAll={selectAllFilter}
+              onClear={clearCategoryFilter}
+            />
+
+            <FilterDropdownGroup 
+              title="Seasonal" 
+              categoryKey="seasonals" 
+              options={dynamicSeasonals} 
+              icon={Calendar}
+              selectedList={filters.seasonals}
+              onToggle={toggleFilter}
+              onSelectAll={selectAllFilter}
+              onClear={clearCategoryFilter}
+            />
+
+            <FilterDropdownGroup 
+              title="Type" 
+              categoryKey="types" 
+              options={dynamicTypes} 
+              icon={Tag}
+              selectedList={filters.types}
+              onToggle={toggleFilter}
+              onSelectAll={selectAllFilter}
+              onClear={clearCategoryFilter}
+            />
           </div>
 
           <div className="bg-black text-white rounded-lg p-5 border-2 border-yellow-400 shadow-[4px_4px_0px_0px_#FFD100]">
@@ -414,6 +686,7 @@ export default function App() {
           </div>
         </aside>
 
+        {/* MAIN CARDS SECTION */}
         <section className="flex-1 min-w-0">
           <div className="bg-white border-2 border-black rounded-lg p-4 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col sm:flex-row gap-4 items-center justify-between">
             <div className="relative w-full sm:w-80">
@@ -487,70 +760,86 @@ export default function App() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-              {filteredProjects.map((project) => (
-                <div 
-                  key={project.id}
-                  className="bg-white border-2 border-black rounded-lg flex flex-col justify-between p-5 hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_#FFD100]"
-                >
-                  <div>
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="bg-black text-yellow-400 text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded flex items-center gap-1.5 shadow-sm">
-                          <Zap size={14} fill="#FFD100" />
-                          {project.watts} Watts
-                        </span>
-                        <span className="text-[11px] font-black uppercase tracking-wider bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded border border-neutral-300">
-                          {project.type}
-                        </span>
+              {filteredProjects.map((project) => {
+                const projectLocs = toArray(project.location);
+                const projectGoals = toArray(project.goal);
+                const projectSeasons = toArray(project.seasonal);
+                const projectTypes = toArray(project.type);
+
+                return (
+                  <div 
+                    key={project.id}
+                    className="bg-white border-2 border-black rounded-lg flex flex-col justify-between p-5 hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_#FFD100]"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="bg-black text-yellow-400 text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded flex items-center gap-1.5 shadow-sm">
+                            <Zap size={14} fill="#FFD100" />
+                            {project.watts} Watts
+                          </span>
+                          {projectTypes.map(t => (
+                            <span key={t} className="text-[11px] font-black uppercase tracking-wider bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded border border-neutral-300">
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleOpenEditModal(project)}
+                            title="Edit Project"
+                            className="p-1 hover:bg-yellow-100 rounded text-neutral-600 hover:text-black border border-transparent hover:border-black transition-all"
+                          >
+                            <Pencil size={14} strokeWidth={2.5} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProject(project.id)}
+                            title="Delete Project"
+                            className="p-1 hover:bg-red-100 rounded text-neutral-400 hover:text-red-600 border border-transparent hover:border-red-300 transition-all"
+                          >
+                            <Trash2 size={14} strokeWidth={2.5} />
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleOpenEditModal(project)}
-                          title="Edit Project"
-                          className="p-1 hover:bg-yellow-100 rounded text-neutral-600 hover:text-black border border-transparent hover:border-black transition-all"
-                        >
-                          <Pencil size={14} strokeWidth={2.5} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteProject(project.id)}
-                          title="Delete Project"
-                          className="p-1 hover:bg-red-100 rounded text-neutral-400 hover:text-red-600 border border-transparent hover:border-red-300 transition-all"
-                        >
-                          <Trash2 size={14} strokeWidth={2.5} />
-                        </button>
+                      <h3 className="text-base font-black text-black leading-snug mb-2 uppercase tracking-tight">
+                        {project.name}
+                      </h3>
+
+                      <p className="text-xs font-medium text-neutral-600 line-clamp-3 mb-4 leading-relaxed">
+                        {project.description || "No project description provided."}
+                      </p>
+                    </div>
+
+                    <div className="pt-3 border-t border-neutral-200">
+                      <div className="flex flex-wrap gap-1.5">
+                        {projectLocs.map(loc => (
+                          <span key={loc} className="inline-flex items-center gap-1 text-[10px] font-bold uppercase bg-yellow-100 text-yellow-900 px-2 py-0.5 rounded border border-yellow-300">
+                            <MapPin size={10} /> {loc}
+                          </span>
+                        ))}
+                        {projectGoals.map(g => (
+                          <span key={g} className="inline-flex items-center gap-1 text-[10px] font-bold uppercase bg-neutral-100 text-neutral-800 px-2 py-0.5 rounded border border-neutral-300">
+                            <Target size={10} /> {g}
+                          </span>
+                        ))}
+                        {projectSeasons.map(s => (
+                          <span key={s} className="inline-flex items-center gap-1 text-[10px] font-bold uppercase bg-neutral-100 text-neutral-800 px-2 py-0.5 rounded border border-neutral-300">
+                            <Calendar size={10} /> {s}
+                          </span>
+                        ))}
                       </div>
                     </div>
-
-                    <h3 className="text-base font-black text-black leading-snug mb-2 uppercase tracking-tight">
-                      {project.name}
-                    </h3>
-
-                    <p className="text-xs font-medium text-neutral-600 line-clamp-3 mb-4 leading-relaxed">
-                      {project.description || "No project description provided."}
-                    </p>
                   </div>
-
-                  <div className="pt-3 border-t border-neutral-200">
-                    <div className="flex flex-wrap gap-1.5">
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase bg-yellow-100 text-yellow-900 px-2 py-0.5 rounded border border-yellow-300">
-                        <MapPin size={10} /> {project.location}
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase bg-neutral-100 text-neutral-800 px-2 py-0.5 rounded border border-neutral-300">
-                        <Target size={10} /> {project.goal}
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase bg-neutral-100 text-neutral-800 px-2 py-0.5 rounded border border-neutral-300">
-                        <Calendar size={10} /> {project.seasonal}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
       </main>
 
+      {/* ADD / EDIT PROJECT MODAL (With Multi-Select Dropdowns) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-white border-4 border-black rounded-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto shadow-[8px_8px_0px_0px_#FFD100]">
@@ -618,103 +907,43 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-black uppercase tracking-wider mb-1 text-black">
-                    Location / Region *
-                  </label>
-                  <select
-                    className="w-full px-3 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none bg-white mb-2"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  >
-                    {dynamicLocations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
-                    <option value="ADD_NEW" className="font-black text-amber-600 bg-yellow-50">+ Create New Location...</option>
-                  </select>
-                  {formData.location === 'ADD_NEW' && (
-                    <input 
-                      type="text"
-                      required
-                      placeholder="Type new region/location name..."
-                      className="w-full px-3 py-2 text-xs font-bold border-2 border-yellow-400 bg-yellow-50 rounded focus:border-black focus:outline-none"
-                      value={customInputs.location}
-                      onChange={(e) => setCustomInputs({ ...customInputs, location: e.target.value })}
-                    />
-                  )}
-                </div>
+                <MultiSelectDropdown
+                  label="Locations / Regions"
+                  options={dynamicLocations}
+                  selected={formData.locations}
+                  onChange={(items) => setFormData({ ...formData, locations: items })}
+                  icon={MapPin}
+                  placeholder="Select one or more regions..."
+                />
 
-                <div>
-                  <label className="block text-xs font-black uppercase tracking-wider mb-1 text-black">
-                    Goal *
-                  </label>
-                  <select
-                    className="w-full px-3 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none bg-white mb-2"
-                    value={formData.goal}
-                    onChange={(e) => setFormData({ ...formData, goal: e.target.value })}
-                  >
-                    {dynamicGoals.map(g => <option key={g} value={g}>{g}</option>)}
-                    <option value="ADD_NEW" className="font-black text-amber-600 bg-yellow-50">+ Create New Goal...</option>
-                  </select>
-                  {formData.goal === 'ADD_NEW' && (
-                    <input 
-                      type="text"
-                      required
-                      placeholder="Type new goal name..."
-                      className="w-full px-3 py-2 text-xs font-bold border-2 border-yellow-400 bg-yellow-50 rounded focus:border-black focus:outline-none"
-                      value={customInputs.goal}
-                      onChange={(e) => setCustomInputs({ ...customInputs, goal: e.target.value })}
-                    />
-                  )}
-                </div>
+                <MultiSelectDropdown
+                  label="Goals"
+                  options={dynamicGoals}
+                  selected={formData.goals}
+                  onChange={(items) => setFormData({ ...formData, goals: items })}
+                  icon={Target}
+                  placeholder="Select one or more goals..."
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-black uppercase tracking-wider mb-1 text-black">
-                    Seasonal *
-                  </label>
-                  <select
-                    className="w-full px-3 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none bg-white mb-2"
-                    value={formData.seasonal}
-                    onChange={(e) => setFormData({ ...formData, seasonal: e.target.value })}
-                  >
-                    {dynamicSeasonals.map(s => <option key={s} value={s}>{s}</option>)}
-                    <option value="ADD_NEW" className="font-black text-amber-600 bg-yellow-50">+ Create New Season...</option>
-                  </select>
-                  {formData.seasonal === 'ADD_NEW' && (
-                    <input 
-                      type="text"
-                      required
-                      placeholder="Type new seasonal category..."
-                      className="w-full px-3 py-2 text-xs font-bold border-2 border-yellow-400 bg-yellow-50 rounded focus:border-black focus:outline-none"
-                      value={customInputs.seasonal}
-                      onChange={(e) => setCustomInputs({ ...customInputs, seasonal: e.target.value })}
-                    />
-                  )}
-                </div>
+                <MultiSelectDropdown
+                  label="Seasonals"
+                  options={dynamicSeasonals}
+                  selected={formData.seasonals}
+                  onChange={(items) => setFormData({ ...formData, seasonals: items })}
+                  icon={Calendar}
+                  placeholder="Select one or more seasons..."
+                />
 
-                <div>
-                  <label className="block text-xs font-black uppercase tracking-wider mb-1 text-black">
-                    Project Type *
-                  </label>
-                  <select
-                    className="w-full px-3 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none bg-white mb-2"
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  >
-                    {dynamicTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                    <option value="ADD_NEW" className="font-black text-amber-600 bg-yellow-50">+ Create New Type...</option>
-                  </select>
-                  {formData.type === 'ADD_NEW' && (
-                    <input 
-                      type="text"
-                      required
-                      placeholder="Type new project type..."
-                      className="w-full px-3 py-2 text-xs font-bold border-2 border-yellow-400 bg-yellow-50 rounded focus:border-black focus:outline-none"
-                      value={customInputs.type}
-                      onChange={(e) => setCustomInputs({ ...customInputs, type: e.target.value })}
-                    />
-                  )}
-                </div>
+                <MultiSelectDropdown
+                  label="Project Types"
+                  options={dynamicTypes}
+                  selected={formData.types}
+                  onChange={(items) => setFormData({ ...formData, types: items })}
+                  icon={Tag}
+                  placeholder="Select one or more types..."
+                />
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t-2 border-black">
