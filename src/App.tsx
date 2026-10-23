@@ -121,7 +121,7 @@ function RegionKeyBanner({ isCollapsible = false }: { isCollapsible?: boolean })
           <button
             type="button"
             onClick={() => setIsOpen(!isOpen)}
-            className="text-neutral-400 hover:text-white text-[11px] font-bold flex items-center gap-1 uppercase tracking-wider"
+            className="text-neutral-400 hover:text-white text-[11px] font-bold flex items-center gap-1 uppercase tracking-wider transition-colors"
           >
             {isOpen ? (
               <><span>Hide</span> <ChevronUp size={14} /></>
@@ -441,6 +441,7 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState<boolean>(false);
+  const [isModalRegionKeyOpen, setIsModalRegionKeyOpen] = useState<boolean>(false);
 
   // Shared persistent custom filter tags stored in Firestore
   const [savedCustomTags, setSavedCustomTags] = useState<CustomFilterOptions>({
@@ -642,6 +643,7 @@ export default function App() {
 
   const handleOpenAddModal = () => {
     setEditingProjectId(null);
+    setIsModalRegionKeyOpen(false);
     setFormData({
       name: '',
       description: '',
@@ -658,6 +660,7 @@ export default function App() {
 
   const handleOpenEditModal = (project: Project) => {
     setEditingProjectId(project.id);
+    setIsModalRegionKeyOpen(false);
     const isQuote = typeof project.watts === 'string' && (project.watts.toLowerCase().includes('quote') || isNaN(Number(project.watts)));
     setFormData({
       name: project.name || '',
@@ -1200,26 +1203,37 @@ export default function App() {
                 />
               </div>
 
-              {/* REGION KEY REFERENCE INSIDE ADD/EDIT MODAL */}
-              <div className="bg-black text-white border-2 border-yellow-400 rounded-lg p-3">
-                <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-neutral-800">
-                  <Map size={13} className="text-yellow-400" />
-                  <span className="text-[11px] font-black uppercase tracking-wider text-yellow-400">
-                    Region Key Quick Reference
+              {/* COMPACT & COLLAPSIBLE REGION KEY IN MODAL */}
+              <div className="border-2 border-black rounded-lg overflow-hidden bg-neutral-900 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setIsModalRegionKeyOpen(!isModalRegionKeyOpen)}
+                  className="w-full px-3 py-2 text-left flex items-center justify-between bg-black hover:bg-neutral-900 transition-colors select-none"
+                >
+                  <div className="flex items-center gap-1.5 text-[11px] font-black uppercase text-yellow-400 tracking-wider">
+                    <Map size={13} className="text-yellow-400" />
+                    <span>Region Key Reference (Need to check state locations?)</span>
+                  </div>
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-neutral-800 text-yellow-400 border border-neutral-700 flex items-center gap-1">
+                    {isModalRegionKeyOpen ? 'Hide' : 'View'}
+                    {isModalRegionKeyOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                   </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px]">
-                  {REGION_KEY_DATA.map(item => (
-                    <div key={item.region} className="bg-neutral-900 p-2 rounded border border-neutral-800">
-                      <span className="font-black uppercase text-yellow-400 block mb-0.5">
-                        {item.region}:
-                      </span>
-                      <span className="text-neutral-300 font-medium leading-relaxed">
-                        {item.desc}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                </button>
+
+                {isModalRegionKeyOpen && (
+                  <div className="p-3 border-t-2 border-yellow-400 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] bg-neutral-950">
+                    {REGION_KEY_DATA.map(item => (
+                      <div key={item.region} className="bg-neutral-900 p-2 rounded border border-neutral-800">
+                        <span className="font-black uppercase text-yellow-400 block mb-0.5">
+                          {item.region}:
+                        </span>
+                        <span className="text-neutral-300 font-medium leading-relaxed">
+                          {item.desc}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
