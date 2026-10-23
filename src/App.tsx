@@ -496,7 +496,7 @@ export default function App() {
 
     const payload = {
       name: formData.name.trim(),
-      description: formData.description.trim(),
+      description: (formData.description || '').trim(),
       watts: formData.isCustomQuote ? 'Custom Quote' : Number(formData.watts),
       location: formData.locations,
       goal: formData.goals,
@@ -623,7 +623,6 @@ export default function App() {
               )}
             </div>
 
-            {/* Renamed Filter Group */}
             <FilterDropdownGroup 
               title="Watts" 
               categoryKey="wattsRanges" 
@@ -933,13 +932,13 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Description - Optional */}
               <div>
                 <label className="block text-xs font-black uppercase tracking-wider mb-1 text-black">
-                  Short Description *
+                  Short Description (Optional)
                 </label>
                 <textarea
-                  required
-                  rows="2"
+                  rows={2}
                   placeholder="Outline who this targets, key deliverables, and campaign intent..."
                   className="w-full px-3 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none"
                   value={formData.description}
