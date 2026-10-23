@@ -150,6 +150,53 @@ function RegionKeyBanner({ isCollapsible = false }: { isCollapsible?: boolean })
   );
 }
 
+function ExpandableDescription({ text }: { text?: string }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const cleanText = text?.trim();
+
+  if (!cleanText) {
+    return (
+      <p className="text-xs font-medium text-neutral-400 italic mb-4 leading-relaxed">
+        No project description provided.
+      </p>
+    );
+  }
+
+  const isLong = cleanText.length > 110 || cleanText.includes('\n');
+
+  return (
+    <div className="mb-4">
+      <p
+        className={`text-xs font-medium text-neutral-600 leading-relaxed whitespace-pre-line ${
+          !isExpanded ? 'line-clamp-3' : ''
+        }`}
+      >
+        {cleanText}
+      </p>
+      {isLong && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsExpanded(!isExpanded);
+          }}
+          className="text-[11px] font-black uppercase tracking-wider text-black hover:text-neutral-700 hover:underline mt-1 inline-flex items-center gap-1 select-none"
+        >
+          {isExpanded ? (
+            <>
+              Show Less <ChevronUp size={12} />
+            </>
+          ) : (
+            <>
+              Read More <ChevronDown size={12} />
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function MultiSelectDropdown({
   label,
   options,
@@ -1061,9 +1108,7 @@ export default function App() {
                         {project.name}
                       </h3>
 
-                      <p className="text-xs font-medium text-neutral-600 line-clamp-3 mb-4 leading-relaxed">
-                        {project.description || "No project description provided."}
-                      </p>
+                      <ExpandableDescription text={project.description} />
                     </div>
 
                     <div className="pt-3 border-t border-neutral-200">
