@@ -45,7 +45,7 @@ interface CustomFilterOptions {
   types?: string[];
 }
 
-const WATTS_RANGES = ['Any', 'Under 25', '25-50', 'Over 50', 'Custom Quote'];
+const WATTS_RANGES = ['Any', 'Under 25', '25-50', 'Over 50', 'Quote'];
 const DEFAULT_INDUSTRIES = ['Any', 'Electric', 'Solar', 'Roofing', 'Plumbing', 'Gutters', 'Garage Doors', 'HVAC', 'Pest Control', 'Home Improvement', 'Other'];
 const DEFAULT_LOCATIONS = ['Any', 'Northeast', 'Midwest', 'South', 'West'];
 const DEFAULT_GOALS = ['Any', 'Recruitment', 'Company Culture', 'Brand Awareness', 'New Customers', 'Existing Customers', 'Events'];
@@ -95,7 +95,7 @@ const toArray = (val: string | string[] | undefined | null): string[] => {
 
 const getWattsRange = (watts: number | string): string => {
   if (typeof watts === 'string' && (watts.toLowerCase().includes('quote') || isNaN(Number(watts)))) {
-    return 'Custom Quote';
+    return 'Quote';
   }
   const w = Number(watts);
   if (w < 25) return 'Under 25';
@@ -452,7 +452,7 @@ function ProjectCard({ project, onEdit, onDelete }: { project: Project; onEdit: 
           {isCustom ? (
             <span className="bg-amber-400 text-black text-[11px] font-black uppercase tracking-wider px-2 py-1 rounded flex items-center gap-1 shadow-sm border border-black">
               <Zap size={12} fill="currentColor" />
-              Custom Quote
+              Quote
             </span>
           ) : (
             <span className="bg-black text-yellow-400 text-[11px] font-black uppercase tracking-wider px-2 py-1 rounded flex items-center gap-1 shadow-sm">
@@ -822,7 +822,7 @@ export default function App() {
     const payload = {
       name: formData.name.trim(),
       description: (formData.description || '').trim(),
-      watts: formData.isCustomQuote ? 'Custom Quote' : Number(formData.watts),
+      watts: formData.isCustomQuote ? 'Quote' : Number(formData.watts),
       industry: formData.industries,
       location: formData.locations,
       goal: formData.goals,
@@ -1182,13 +1182,13 @@ export default function App() {
                         })}
                         className="rounded border-neutral-400 text-yellow-400 focus:ring-0 w-3.5 h-3.5"
                       />
-                      <span className="text-[11px] font-black uppercase text-amber-700">Custom Quote</span>
+                      <span className="text-[11px] font-black uppercase text-amber-700">Quote</span>
                     </label>
                   </div>
 
                   {formData.isCustomQuote ? (
                     <div className="w-full px-3 py-2 text-xs font-black text-amber-800 bg-amber-100 border-2 border-amber-400 rounded flex items-center justify-center uppercase tracking-wide">
-                      Custom Quote Selected
+                      Quote Selected
                     </div>
                   ) : (
                     <input
@@ -1218,7 +1218,7 @@ export default function App() {
                 />
               </div>
 
-              {/* COLLAPSIBLE REGION KEY: POSITIONED DIRECTLY BELOW DESCRIPTION & ABOVE FILTERS */}
+              {/* COLLAPSIBLE REGION KEY: PLACED DIRECTLY BELOW DESCRIPTION & ABOVE FILTERS */}
               <div className="border-2 border-black rounded-lg overflow-hidden bg-neutral-900 shadow-sm">
                 <button
                   type="button"
