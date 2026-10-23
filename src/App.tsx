@@ -103,6 +103,53 @@ const getWattsRange = (watts: number | string): string => {
   return 'Over 50';
 };
 
+function RegionKeyBanner({ isCollapsible = false }: { isCollapsible?: boolean }) {
+  const [isOpen, setIsOpen] = useState(true);
+
+  return (
+    <div className="bg-black text-white border-2 border-yellow-400 rounded-lg p-4 shadow-[4px_4px_0px_0px_#FFD100]">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="bg-yellow-400 p-1 rounded border border-black">
+            <Map size={14} className="text-black" />
+          </div>
+          <span className="text-xs font-black uppercase tracking-wider text-yellow-400">
+            Region Key Reference
+          </span>
+        </div>
+        {isCollapsible && (
+          <button
+            type="button"
+            onClick={() => setIsOpen(!isOpen)}
+            className="text-neutral-400 hover:text-white text-[11px] font-bold flex items-center gap-1 uppercase tracking-wider"
+          >
+            {isOpen ? (
+              <><span>Hide</span> <ChevronUp size={14} /></>
+            ) : (
+              <><span>Show</span> <ChevronDown size={14} /></>
+            )}
+          </button>
+        )}
+      </div>
+
+      {isOpen && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2 border-t border-neutral-800">
+          {REGION_KEY_DATA.map(item => (
+            <div key={item.region} className="bg-neutral-900 border border-neutral-800 rounded p-2.5">
+              <span className="font-black uppercase tracking-wider text-yellow-400 block mb-1 text-xs">
+                {item.region}:
+              </span>
+              <span className="text-neutral-300 text-[11px] font-medium leading-relaxed block">
+                {item.desc}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MultiSelectDropdown({
   label,
   options,
@@ -773,6 +820,11 @@ export default function App() {
         </div>
       </header>
 
+      {/* TOP REGION KEY REFERENCE BANNER */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 w-full">
+        <RegionKeyBanner isCollapsible={true} />
+      </div>
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full flex flex-col md:flex-row gap-6">
         <aside className={`md:w-72 flex-shrink-0 ${isMobileFiltersOpen ? 'block' : 'hidden'} md:block`}>
           <div className="bg-white border-2 border-black rounded-lg p-5 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
@@ -861,26 +913,6 @@ export default function App() {
               onSelectAll={selectAllFilter}
               onClear={clearCategoryFilter}
             />
-          </div>
-
-          {/* REGION KEY - CLEAN TEXT ONLY */}
-          <div className="bg-black text-white rounded-lg p-5 border-2 border-yellow-400 shadow-[4px_4px_0px_0px_#FFD100]">
-            <h2 className="text-sm font-black uppercase text-yellow-400 flex items-center gap-2 mb-3 tracking-wider">
-              <Map size={16} /> Region Key
-            </h2>
-
-            <div className="space-y-3.5 text-xs leading-relaxed">
-              {REGION_KEY_DATA.map(item => (
-                <div key={item.region} className="border-b border-neutral-800 last:border-b-0 pb-2.5 last:pb-0">
-                  <span className="font-black uppercase tracking-wider block mb-0.5 text-yellow-400">
-                    {item.region}:
-                  </span>
-                  <span className="text-neutral-300 font-medium tracking-wide">
-                    {item.desc}
-                  </span>
-                </div>
-              ))}
-            </div>
           </div>
         </aside>
 
@@ -1058,6 +1090,7 @@ export default function App() {
         </section>
       </main>
 
+      {/* ADD / EDIT MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-white border-4 border-black rounded-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto shadow-[8px_8px_0px_0px_#FFD100]">
@@ -1165,6 +1198,28 @@ export default function App() {
                   icon={MapPin}
                   placeholder="Select one or more regions..."
                 />
+              </div>
+
+              {/* REGION KEY REFERENCE INSIDE ADD/EDIT MODAL */}
+              <div className="bg-black text-white border-2 border-yellow-400 rounded-lg p-3">
+                <div className="flex items-center gap-1.5 mb-2 pb-1.5 border-b border-neutral-800">
+                  <Map size={13} className="text-yellow-400" />
+                  <span className="text-[11px] font-black uppercase tracking-wider text-yellow-400">
+                    Region Key Quick Reference
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px]">
+                  {REGION_KEY_DATA.map(item => (
+                    <div key={item.region} className="bg-neutral-900 p-2 rounded border border-neutral-800">
+                      <span className="font-black uppercase text-yellow-400 block mb-0.5">
+                        {item.region}:
+                      </span>
+                      <span className="text-neutral-300 font-medium leading-relaxed">
+                        {item.desc}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
