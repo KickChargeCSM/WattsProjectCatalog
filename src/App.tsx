@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { Plus, Filter, Zap, Map, X, Search, Activity, Tag, Calendar, MapPin, Target, RotateCcw, Download, Pencil, Trash2, Wifi, WifiOff, ChevronDown, ChevronUp, Briefcase, Maximize2 , ExternalLink, Folder } from 'lucide-react';
+import { Plus, Filter, Zap, Map, X, Search, Activity, Tag, Calendar, MapPin, Target, RotateCcw, Download, Pencil, Trash2, Wifi, WifiOff, ChevronDown, ChevronUp, Briefcase, Maximize2, ExternalLink, Folder, ArrowUpDown } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -40,6 +40,8 @@ interface FormDataState {
   examples: string;
   resources: string;
 }
+
+type SortOption = 'newest' | 'alphabetical-asc' | 'alphabetical-desc' | 'oldest';
 
 interface CustomFilterOptions {
   industries?: string[];
@@ -501,6 +503,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [dbError, setDbError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [sortBy, setSortBy] = useState<SortOption>('newest');
   
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
@@ -662,10 +665,11 @@ export default function App() {
       types: []
     });
     setSearchQuery('');
+    setSortBy('newest');
   };
 
   const filteredProjects = useMemo(() => {
-    return projects.filter(p => {
+    const list = projects.filter(p => {
       const pWattsRange = getWattsRange(p.watts);
       const pInds = toArray(p.industry);
       const pLocs = toArray(p.location);
@@ -681,11 +685,11 @@ export default function App() {
       const typesFilterActive = filters.types.filter(t => t !== 'Any');
 
       const matchWatts = wattsFilterActive.length === 0 || wattsFilterActive.includes(pWattsRange);
-      const matchIndustry = industriesFilterActive.length === 0 || pInds.includes('Any') || pInds.some(ind => industriesFilterActive.includes(ind));
-      const matchLocation = locsFilterActive.length === 0 || pLocs.includes('Any') || pLocs.some(loc => locsFilterActive.includes(loc));
-      const matchGoal = goalsFilterActive.length === 0 || pGoals.includes('Any') || pGoals.some(g => goalsFilterActive.includes(g));
-      const matchSeasonal = seasonalsFilterActive.length === 0 || pSeasons.includes('Any') || pSeasons.some(s => seasonalsFilterActive.includes(s));
-      const matchType = typesFilterActive.length === 0 || pTypes.includes('Any') || pTypes.some(t => typesFilterActive.includes(t));
+      const matchIndustry = industriesFilterActive.length === 0 || pInds.some(ind => industriesFilterActive.includes(ind));
+      const matchLocation = locsFilterActive.length === 0 || pLocs.some(loc => locsFilterActive.includes(loc));
+      const matchGoal = goalsFilterActive.length === 0 || pGoals.some(g => goalsFilterActive.includes(g));
+      const matchSeasonal = seasonalsFilterActive.length === 0 || pSeasons.some(s => seasonalsFilterActive.includes(s));
+      const matchType = typesFilterActive.length === 0 || pTypes.some(t => typesFilterActive.includes(t));
 
       const q = searchQuery.toLowerCase().trim();
       const terms = q.split(/\s+/).filter(Boolean);
@@ -704,7 +708,24 @@ export default function App() {
 
       return matchWatts && matchIndustry && matchLocation && matchGoal && matchSeasonal && matchType && matchSearch;
     });
-  }, [projects, filters, searchQuery]);
+
+    return list.sort((a, b) => {
+      if (sortBy === 'alphabetical-asc') {
+        return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' });
+      }
+      if (sortBy === 'alphabetical-desc') {
+        return (b.name || '').localeCompare(a.name || '', undefined, { sensitivity: 'base' });
+      }
+      if (sortBy === 'oldest') {
+        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt || 0);
+        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt || 0);
+        return timeA - timeB;
+      }
+      const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt || 0);
+      const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt || 0);
+      return timeB - timeA;
+    });
+  }, [projects, filters, searchQuery, sortBy]);
 
   const activeFilterCount = Object.values(filters).reduce((acc, arr) => {
     return acc + arr.filter(i => i !== 'Any').length;
@@ -912,7 +933,7 @@ export default function App() {
               <h2 className="text-sm font-black uppercase text-black flex items-center gap-2 tracking-wider">
                 <Filter size={16} /> Filter Projects
               </h2>
-              {(activeFilterCount > 0 || searchQuery) && (
+              {(activeFilterCount > 0 || searchQuery || sortBy !== 'newest') && (
                 <button 
                   onClick={clearAllFilters}
                   className="text-[11px] font-black text-red-600 hover:text-black flex items-center gap-1 uppercase tracking-wider transition-colors"
@@ -998,32 +1019,55 @@ export default function App() {
 
         {/* MAIN PROJECTS SECTION */}
         <section className="flex-1 min-w-0">
-          <div className="bg-white border-2 border-black rounded-lg p-4 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
-            <div className="w-full md:w-96">
-              <label className="block text-[11px] font-black uppercase tracking-wider text-black mb-1 flex items-center gap-1.5">
-                <Search size={13} className="text-yellow-500" /> Search Project Types & Keywords
-              </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 text-neutral-400" size={15} />
-                <input 
-                  type="text"
-                  placeholder="Type any keyword to match title, industry, description, or type..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none transition-all placeholder:text-neutral-400"
-                />
-                {searchQuery && (
-                  <button 
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-2.5 text-neutral-400 hover:text-black"
+          <div className="bg-white border-2 border-black rounded-lg p-4 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+            <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto flex-1 max-w-2xl">
+              {/* Search Field */}
+              <div className="flex-1">
+                <label className="block text-[11px] font-black uppercase tracking-wider text-black mb-1 flex items-center gap-1.5">
+                  <Search size={13} className="text-yellow-500" /> Search Project Types & Keywords
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-2.5 text-neutral-400" size={15} />
+                  <input 
+                    type="text"
+                    placeholder="Type any keyword to match title, industry, description, or type..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none transition-all placeholder:text-neutral-400"
+                  />
+                  {searchQuery && (
+                    <button 
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2.5 top-2.5 text-neutral-400 hover:text-black"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Alphabetical / Order Sort Dropdown */}
+              <div className="sm:w-56">
+                <label className="block text-[11px] font-black uppercase tracking-wider text-black mb-1 flex items-center gap-1.5">
+                  <ArrowUpDown size={13} className="text-yellow-500" /> Sort Catalog
+                </label>
+                <div className="relative">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as SortOption)}
+                    className="w-full appearance-none bg-white border-2 border-neutral-300 rounded px-3 py-2 pr-8 text-xs font-bold text-neutral-800 focus:border-black focus:outline-none cursor-pointer hover:border-neutral-400 transition-colors"
                   >
-                    <X size={14} />
-                  </button>
-                )}
+                    <option value="newest">Newest First</option>
+                    <option value="alphabetical-asc">Alphabetical (A → Z)</option>
+                    <option value="alphabetical-desc">Alphabetical (Z → A)</option>
+                    <option value="oldest">Oldest First</option>
+                  </select>
+                  <ChevronDown size={14} className="absolute right-2.5 top-2.5 text-neutral-500 pointer-events-none" />
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end self-end md:self-center">
+            <div className="flex items-center gap-2 w-full lg:w-auto justify-between lg:justify-end self-end lg:self-center">
               <span className="text-xs font-black uppercase tracking-wider text-neutral-600">
                 Showing <span className="text-black font-extrabold text-sm">{filteredProjects.length}</span> of {projects.length} Projects
               </span>
@@ -1254,6 +1298,13 @@ export default function App() {
 
             {/* Modal Footer */}
             <div className="flex justify-end gap-3 pt-6 mt-6 border-t-2 border-black">
+              <button
+                type="button"
+                onClick={() => setViewingProject(null)}
+                className="px-5 py-2 text-xs font-black uppercase tracking-wider text-black bg-neutral-200 hover:bg-neutral-300 rounded border-2 border-black transition-colors"
+              >
+                Close
+              </button>
               <button
                 type="button"
                 onClick={() => {
