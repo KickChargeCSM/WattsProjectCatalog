@@ -1168,6 +1168,7 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Short Description */}
               <div>
                 <label className="block text-xs font-black uppercase tracking-wider mb-1 text-black">
                   Short Description (Optional)
@@ -1181,29 +1182,7 @@ export default function App() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <MultiSelectDropdown
-                  label="Industry"
-                  options={dynamicIndustries}
-                  selected={formData.industries}
-                  onChange={(items) => setFormData({ ...formData, industries: items })}
-                  onCustomAdd={(val) => saveCustomTagToCloud('industries', val)}
-                  icon={Briefcase}
-                  placeholder="Select one or more industries..."
-                />
-
-                <MultiSelectDropdown
-                  label="Locations / Regions"
-                  options={dynamicLocations}
-                  selected={formData.locations}
-                  onChange={(items) => setFormData({ ...formData, locations: items })}
-                  onCustomAdd={(val) => saveCustomTagToCloud('locations', val)}
-                  icon={MapPin}
-                  placeholder="Select one or more regions..."
-                />
-              </div>
-
-              {/* COMPACT & COLLAPSIBLE REGION KEY IN MODAL */}
+              {/* COLLAPSIBLE REGION KEY: POSITIONED DIRECTLY BELOW DESCRIPTION & ABOVE FILTERS */}
               <div className="border-2 border-black rounded-lg overflow-hidden bg-neutral-900 shadow-sm">
                 <button
                   type="button"
@@ -1234,6 +1213,29 @@ export default function App() {
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* FILTERS BEGIN HERE */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <MultiSelectDropdown
+                  label="Industry"
+                  options={dynamicIndustries}
+                  selected={formData.industries}
+                  onChange={(items) => setFormData({ ...formData, industries: items })}
+                  onCustomAdd={(val) => saveCustomTagToCloud('industries', val)}
+                  icon={Briefcase}
+                  placeholder="Select one or more industries..."
+                />
+
+                <MultiSelectDropdown
+                  label="Locations / Regions"
+                  options={dynamicLocations}
+                  selected={formData.locations}
+                  onChange={(items) => setFormData({ ...formData, locations: items })}
+                  onCustomAdd={(val) => saveCustomTagToCloud('locations', val)}
+                  icon={MapPin}
+                  placeholder="Select one or more regions..."
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
