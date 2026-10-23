@@ -55,22 +55,22 @@ const DEFAULT_TYPES = ['Any', 'Collateral', 'OOH', 'Apparel', 'Vehicle', 'Digita
 const REGION_KEY_DATA = [
   { 
     region: 'Northeast', 
-    color: '#38bdf8', // Sky Blue
+    color: '#38bdf8',
     desc: 'CT, ME, MA, NH, RI, VT, NJ, NY, PA' 
   },
   { 
     region: 'Midwest', 
-    color: '#34d399', // Emerald
+    color: '#34d399',
     desc: 'IL, IN, MI, OH, WI, IA, KS, MN, MO, NE, ND, SD' 
   },
   { 
     region: 'South', 
-    color: '#fb923c', // Orange
+    color: '#fb923c',
     desc: 'DE, DC, FL, GA, MD, NC, SC, VA, WV, AL, KY, MS, TN, AR, LA, OK, TX' 
   },
   { 
     region: 'West', 
-    color: '#facc15', // Yellow
+    color: '#facc15',
     desc: 'AZ, CO, ID, MT, NV, NM, UT, WY, AK, CA, HI, OR, WA' 
   }
 ];
@@ -102,96 +102,6 @@ const getWattsRange = (watts: number | string): string => {
   if (w >= 25 && w <= 50) return '25-50';
   return 'Over 50';
 };
-
-// Mini US Region Map Component
-function USRegionsMap() {
-  return (
-    <div className="mb-4 bg-neutral-900 border-2 border-neutral-700 rounded-md p-2">
-      <svg viewBox="0 0 300 175" className="w-full h-auto" fill="none" xmlns="http://www.w3.org/2000/svg">
-        {/* WEST REGION */}
-        <path
-          d="M 20,20 L 110,20 L 110,132 L 85,134 L 62,126 L 38,124 C 30,96 22,60 20,20 Z"
-          fill="#facc15"
-          fillOpacity="0.85"
-          stroke="#000"
-          strokeWidth="1.5"
-          className="hover:opacity-100 transition-opacity"
-        />
-        {/* Alaska (Inset) */}
-        <path
-          d="M 12,142 L 32,142 L 35,160 L 25,165 L 12,158 Z"
-          fill="#facc15"
-          fillOpacity="0.85"
-          stroke="#000"
-          strokeWidth="1"
-        />
-        <text x="22" y="156" fill="#000" fontSize="7" fontWeight="900" textAnchor="middle">AK</text>
-        
-        {/* Hawaii (Inset) */}
-        <circle cx="48" cy="155" r="2.5" fill="#facc15" stroke="#000" strokeWidth="0.8" />
-        <circle cx="55" cy="158" r="3" fill="#facc15" stroke="#000" strokeWidth="0.8" />
-        <circle cx="63" cy="161" r="3.5" fill="#facc15" stroke="#000" strokeWidth="0.8" />
-        <text x="56" y="172" fill="#facc15" fontSize="7" fontWeight="900" textAnchor="middle">HI</text>
-
-        {/* MIDWEST REGION */}
-        <path
-          d="M 110,20 L 175,20 C 190,20 206,34 212,50 L 208,72 C 190,75 176,80 168,84 L 138,90 L 110,90 Z"
-          fill="#34d399"
-          fillOpacity="0.85"
-          stroke="#000"
-          strokeWidth="1.5"
-          className="hover:opacity-100 transition-opacity"
-        />
-
-        {/* NORTHEAST REGION */}
-        <path
-          d="M 212,50 C 218,36 230,28 245,20 L 268,10 C 274,18 268,30 264,40 C 270,45 264,54 258,58 C 254,68 256,76 256,76 L 232,76 L 208,72 Z"
-          fill="#38bdf8"
-          fillOpacity="0.85"
-          stroke="#000"
-          strokeWidth="1.5"
-          className="hover:opacity-100 transition-opacity"
-        />
-
-        {/* SOUTH REGION */}
-        <path
-          d="M 110,90 L 138,90 L 168,84 C 176,80 190,75 208,72 L 232,76 L 256,76 C 260,86 252,106 238,124 C 236,138 240,160 236,168 C 232,160 228,138 218,138 C 195,136 170,142 155,140 C 145,148 135,162 125,164 C 105,156 95,142 110,132 Z"
-          fill="#fb923c"
-          fillOpacity="0.85"
-          stroke="#000"
-          strokeWidth="1.5"
-          className="hover:opacity-100 transition-opacity"
-        />
-
-        {/* Region Labels on Map */}
-        <text x="62" y="75" fill="#000" fontSize="10" fontWeight="900" textAnchor="middle">WEST</text>
-        <text x="156" y="55" fill="#000" fontSize="10" fontWeight="900" textAnchor="middle">MIDWEST</text>
-        <text x="246" y="45" fill="#000" fontSize="8" fontWeight="900" textAnchor="middle">NE</text>
-        <text x="175" y="118" fill="#000" fontSize="10" fontWeight="900" textAnchor="middle">SOUTH</text>
-      </svg>
-      
-      {/* Visual Legend Bar */}
-      <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-neutral-800 text-[10px] font-black uppercase">
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-sm bg-[#facc15] border border-black inline-block"></span>
-          <span className="text-[#facc15]">West</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-sm bg-[#34d399] border border-black inline-block"></span>
-          <span className="text-[#34d399]">Midwest</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-sm bg-[#38bdf8] border border-black inline-block"></span>
-          <span className="text-[#38bdf8]">Northeast</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-sm bg-[#fb923c] border border-black inline-block"></span>
-          <span className="text-[#fb923c]">South</span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function MultiSelectDropdown({
   label,
@@ -880,7 +790,7 @@ export default function App() {
               )}
             </div>
 
-            {/* 1. WATTS (Moved to the very top) */}
+            {/* 1. WATTS */}
             <FilterDropdownGroup 
               title="Watts" 
               categoryKey="wattsRanges" 
@@ -953,22 +863,21 @@ export default function App() {
             />
           </div>
 
-          {/* REGION KEY BOX WITH MINI US MAP */}
+          {/* REGION KEY - CLEAN TEXT ONLY */}
           <div className="bg-black text-white rounded-lg p-5 border-2 border-yellow-400 shadow-[4px_4px_0px_0px_#FFD100]">
             <h2 className="text-sm font-black uppercase text-yellow-400 flex items-center gap-2 mb-3 tracking-wider">
               <Map size={16} /> Region Key
             </h2>
 
-            {/* MINI US MAP WITH REGION INSETS & VISUAL LEGEND */}
-            <USRegionsMap />
-
-            <div className="space-y-3 text-xs leading-relaxed">
+            <div className="space-y-3.5 text-xs leading-relaxed">
               {REGION_KEY_DATA.map(item => (
-                <div key={item.region} className="border-b border-neutral-800 last:border-b-0 pb-2 last:pb-0">
-                  <span className="font-black uppercase block tracking-wider" style={{ color: item.color }}>
+                <div key={item.region} className="border-b border-neutral-800 last:border-b-0 pb-2.5 last:pb-0">
+                  <span className="font-black uppercase tracking-wider block mb-0.5 text-yellow-400">
                     {item.region}:
                   </span>
-                  <span className="text-neutral-300 font-medium">{item.desc}</span>
+                  <span className="text-neutral-300 font-medium tracking-wide">
+                    {item.desc}
+                  </span>
                 </div>
               ))}
             </div>
@@ -1149,7 +1058,6 @@ export default function App() {
         </section>
       </main>
 
-      {/* ADD / EDIT MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-white border-4 border-black rounded-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto shadow-[8px_8px_0px_0px_#FFD100]">
