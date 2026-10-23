@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { Plus, Filter, Zap, Map, X, Search, Activity, Tag, Calendar, MapPin, Target, RotateCcw, Download, Pencil, Trash2, Wifi, WifiOff, ChevronDown, ChevronUp } from 'lucide-react';
+import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { Plus, Filter, Zap, Map, X, Search, Activity, Tag, Calendar, MapPin, Target, RotateCcw, Download, Pencil, Trash2, Wifi, WifiOff, ChevronDown, ChevronUp, Briefcase } from 'lucide-react';
 
 interface Project {
   id: string;
   name: string;
   description: string;
   watts: number | string;
+  industry?: string | string[];
   location: string | string[];
   goal: string | string[];
   seasonal: string | string[];
@@ -17,6 +18,7 @@ interface Project {
 
 interface FilterState {
   wattsRanges: string[];
+  industries: string[];
   locations: string[];
   goals: string[];
   seasonals: string[];
@@ -28,13 +30,23 @@ interface FormDataState {
   description: string;
   watts: string;
   isCustomQuote: boolean;
+  industries: string[];
   locations: string[];
   goals: string[];
   seasonals: string[];
   types: string[];
 }
 
+interface CustomFilterOptions {
+  industries?: string[];
+  locations?: string[];
+  goals?: string[];
+  seasonals?: string[];
+  types?: string[];
+}
+
 const WATTS_RANGES = ['Any', 'Under 25', '25-50', 'Over 50', 'Custom Quote'];
+const DEFAULT_INDUSTRIES = ['Any', 'Electric', 'Solar', 'Roofing', 'Plumbing', 'Gutters', 'Garage Doors', 'HVAC', 'Pest Control', 'Home Improvement', 'Other'];
 const DEFAULT_LOCATIONS = ['Any', 'Northeast', 'Midwest', 'South', 'West'];
 const DEFAULT_GOALS = ['Any', 'Recruitment', 'Company Culture', 'Brand Awareness', 'New Customers', 'Existing Customers', 'Events'];
 const DEFAULT_SEASONALS = ['Any', 'General Holiday', 'Fall', 'Winter', 'Spring', 'Summer'];
@@ -80,6 +92,7 @@ function MultiSelectDropdown({
   options,
   selected,
   onChange,
+  onCustomAdd,
   icon: Icon,
   placeholder
 }: {
@@ -87,6 +100,7 @@ function MultiSelectDropdown({
   options: string[];
   selected: string[];
   onChange: (items: string[]) => void;
+  onCustomAdd?: (newOption: string) => void;
   icon: any;
   placeholder: string;
 }) {
@@ -117,6 +131,9 @@ function MultiSelectDropdown({
     const val = customInput.trim();
     if (val && !selected.includes(val)) {
       onChange([...selected, val]);
+      if (onCustomAdd) {
+        onCustomAdd(val);
+      }
       setCustomInput('');
     }
   };
@@ -243,6 +260,7 @@ function FilterDropdownGroup({
   onClear: (cat: keyof FilterState) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const [showAll, setShowAll] = useState(false);
   
   const listWithOptions = useMemo(() => {
     const rawWithoutAny = options.filter(o => o !== 'Any');
@@ -251,6 +269,9 @@ function FilterDropdownGroup({
 
   const specificSelected = selectedList.filter(o => o !== 'Any');
   const isAnyActive = specificSelected.length === 0 || selectedList.includes('Any');
+
+  const visibleOptions = showAll ? listWithOptions : listWithOptions.slice(0, 4);
+  const hasMore = listWithOptions.length > 4;
 
   return (
     <div className="mb-4 pb-3 border-b border-gray-200 last:border-b-0 last:pb-0">
@@ -288,8 +309,8 @@ function FilterDropdownGroup({
       </div>
 
       {isExpanded && (
-        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 mt-2">
-          {listWithOptions.map((option: string) => {
+        <div className="space-y-1.5 overflow-y-auto pr-1 mt-2">
+          {visibleOptions.map((option: string) => {
             const isChecked = option === 'Any' ? isAnyActive : selectedList.includes(option);
             return (
               <label 
@@ -324,6 +345,24 @@ function FilterDropdownGroup({
               </label>
             );
           })}
+
+          {hasMore && (
+            <button
+              type="button"
+              onClick={() => setShowAll(!showAll)}
+              className="text-[11px] font-black text-neutral-600 hover:text-black pt-1.5 flex items-center gap-1 uppercase tracking-wider transition-colors select-none"
+            >
+              {showAll ? (
+                <>
+                  <ChevronUp size={13} /> Show Less
+                </>
+              ) : (
+                <>
+                  <ChevronDown size={13} /> Show More ({listWithOptions.length - 4} More)
+                </>
+              )}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -339,9 +378,19 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState<boolean>(false);
+
+  // Shared persistent custom filter tags stored in Firestore
+  const [savedCustomTags, setSavedCustomTags] = useState<CustomFilterOptions>({
+    industries: [],
+    locations: [],
+    goals: [],
+    seasonals: [],
+    types: []
+  });
   
   const [filters, setFilters] = useState<FilterState>({
     wattsRanges: [],
+    industries: [],
     locations: [],
     goals: [],
     seasonals: [],
@@ -353,6 +402,7 @@ export default function App() {
     description: '',
     watts: '',
     isCustomQuote: false,
+    industries: [DEFAULT_INDUSTRIES.find(i => i !== 'Any') || 'Electric'],
     locations: [DEFAULT_LOCATIONS.find(l => l !== 'Any') || 'Northeast'],
     goals: [DEFAULT_GOALS.find(g => g !== 'Any') || 'Recruitment'],
     seasonals: [DEFAULT_SEASONALS.find(s => s !== 'Any') || 'General Holiday'],
@@ -361,7 +411,7 @@ export default function App() {
 
   useEffect(() => {
     const projectsRef = collection(db, 'projects');
-    const unsubscribe = onSnapshot(
+    const unsubscribeProjects = onSnapshot(
       projectsRef,
       (snapshot) => {
         const fetched = snapshot.docs.map(docSnapshot => ({
@@ -383,13 +433,71 @@ export default function App() {
       }
     );
 
-    return () => unsubscribe();
+    // Sync saved custom tags in real-time across all users
+    const customTagsDoc = doc(db, 'metadata', 'custom_tags');
+    const unsubscribeTags = onSnapshot(
+      customTagsDoc,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setSavedCustomTags(docSnap.data() as CustomFilterOptions);
+        }
+      },
+      (error) => {
+        console.warn("Custom tags sync note:", error.message);
+      }
+    );
+
+    return () => {
+      unsubscribeProjects();
+      unsubscribeTags();
+    };
   }, []);
 
-  const dynamicLocations = useMemo(() => Array.from(new Set([...DEFAULT_LOCATIONS, ...projects.flatMap(p => toArray(p.location))])).filter(Boolean), [projects]);
-  const dynamicGoals = useMemo(() => Array.from(new Set([...DEFAULT_GOALS, ...projects.flatMap(p => toArray(p.goal))])).filter(Boolean), [projects]);
-  const dynamicSeasonals = useMemo(() => Array.from(new Set([...DEFAULT_SEASONALS, ...projects.flatMap(p => toArray(p.seasonal))])).filter(Boolean), [projects]);
-  const dynamicTypes = useMemo(() => Array.from(new Set([...DEFAULT_TYPES, ...projects.flatMap(p => toArray(p.type))])).filter(Boolean), [projects]);
+  // Save new custom options directly to Firestore
+  const saveCustomTagToCloud = async (category: keyof CustomFilterOptions, newTag: string) => {
+    try {
+      const existing = savedCustomTags[category] || [];
+      if (!existing.includes(newTag)) {
+        const updatedList = Array.from(new Set([...existing, newTag]));
+        await setDoc(doc(db, 'metadata', 'custom_tags'), {
+          ...savedCustomTags,
+          [category]: updatedList
+        }, { merge: true });
+      }
+    } catch (err) {
+      console.error("Error saving custom tag:", err);
+    }
+  };
+
+  const dynamicIndustries = useMemo(() => Array.from(new Set([
+    ...DEFAULT_INDUSTRIES,
+    ...(savedCustomTags.industries || []),
+    ...projects.flatMap(p => toArray(p.industry))
+  ])).filter(Boolean), [projects, savedCustomTags]);
+
+  const dynamicLocations = useMemo(() => Array.from(new Set([
+    ...DEFAULT_LOCATIONS,
+    ...(savedCustomTags.locations || []),
+    ...projects.flatMap(p => toArray(p.location))
+  ])).filter(Boolean), [projects, savedCustomTags]);
+
+  const dynamicGoals = useMemo(() => Array.from(new Set([
+    ...DEFAULT_GOALS,
+    ...(savedCustomTags.goals || []),
+    ...projects.flatMap(p => toArray(p.goal))
+  ])).filter(Boolean), [projects, savedCustomTags]);
+
+  const dynamicSeasonals = useMemo(() => Array.from(new Set([
+    ...DEFAULT_SEASONALS,
+    ...(savedCustomTags.seasonals || []),
+    ...projects.flatMap(p => toArray(p.seasonal))
+  ])).filter(Boolean), [projects, savedCustomTags]);
+
+  const dynamicTypes = useMemo(() => Array.from(new Set([
+    ...DEFAULT_TYPES,
+    ...(savedCustomTags.types || []),
+    ...projects.flatMap(p => toArray(p.type))
+  ])).filter(Boolean), [projects, savedCustomTags]);
 
   const toggleFilter = (category: keyof FilterState, value: string) => {
     setFilters(prev => {
@@ -418,6 +526,7 @@ export default function App() {
   const clearAllFilters = () => {
     setFilters({
       wattsRanges: [],
+      industries: [],
       locations: [],
       goals: [],
       seasonals: [],
@@ -429,18 +538,21 @@ export default function App() {
   const filteredProjects = useMemo(() => {
     return projects.filter(p => {
       const pWattsRange = getWattsRange(p.watts);
+      const pInds = toArray(p.industry);
       const pLocs = toArray(p.location);
       const pGoals = toArray(p.goal);
       const pSeasons = toArray(p.seasonal);
       const pTypes = toArray(p.type);
       
       const wattsFilterActive = filters.wattsRanges.filter(w => w !== 'Any');
+      const industriesFilterActive = filters.industries.filter(i => i !== 'Any');
       const locsFilterActive = filters.locations.filter(l => l !== 'Any');
       const goalsFilterActive = filters.goals.filter(g => g !== 'Any');
       const seasonalsFilterActive = filters.seasonals.filter(s => s !== 'Any');
       const typesFilterActive = filters.types.filter(t => t !== 'Any');
 
       const matchWatts = wattsFilterActive.length === 0 || wattsFilterActive.includes(pWattsRange);
+      const matchIndustry = industriesFilterActive.length === 0 || pInds.includes('Any') || pInds.some(ind => industriesFilterActive.includes(ind));
       const matchLocation = locsFilterActive.length === 0 || pLocs.includes('Any') || pLocs.some(loc => locsFilterActive.includes(loc));
       const matchGoal = goalsFilterActive.length === 0 || pGoals.includes('Any') || pGoals.some(g => goalsFilterActive.includes(g));
       const matchSeasonal = seasonalsFilterActive.length === 0 || pSeasons.includes('Any') || pSeasons.some(s => seasonalsFilterActive.includes(s));
@@ -451,14 +563,15 @@ export default function App() {
       const matchSearch = terms.length === 0 || terms.every(term => {
         const inTitle = p.name && p.name.toLowerCase().includes(term);
         const inDesc = p.description && p.description.toLowerCase().includes(term);
+        const inIndustry = pInds.some(i => i.toLowerCase().includes(term));
         const inType = pTypes.some(t => t.toLowerCase().includes(term));
         const inGoal = pGoals.some(g => g.toLowerCase().includes(term));
         const inLoc = pLocs.some(l => l.toLowerCase().includes(term));
         const inWatts = String(p.watts).toLowerCase().includes(term);
-        return inTitle || inDesc || inType || inGoal || inLoc || inWatts;
+        return inTitle || inDesc || inIndustry || inType || inGoal || inLoc || inWatts;
       });
 
-      return matchWatts && matchLocation && matchGoal && matchSeasonal && matchType && matchSearch;
+      return matchWatts && matchIndustry && matchLocation && matchGoal && matchSeasonal && matchType && matchSearch;
     });
   }, [projects, filters, searchQuery]);
 
@@ -473,6 +586,7 @@ export default function App() {
       description: '',
       watts: '',
       isCustomQuote: false,
+      industries: [DEFAULT_INDUSTRIES.find(i => i !== 'Any') || 'Electric'],
       locations: [DEFAULT_LOCATIONS.find(l => l !== 'Any') || 'Northeast'],
       goals: [DEFAULT_GOALS.find(g => g !== 'Any') || 'Recruitment'],
       seasonals: [DEFAULT_SEASONALS.find(s => s !== 'Any') || 'General Holiday'],
@@ -489,6 +603,7 @@ export default function App() {
       description: project.description || '',
       watts: isQuote ? '' : String(project.watts || ''),
       isCustomQuote: isQuote,
+      industries: toArray(project.industry).length > 0 ? toArray(project.industry) : [DEFAULT_INDUSTRIES.find(i => i !== 'Any') || 'Electric'],
       locations: toArray(project.location),
       goals: toArray(project.goal),
       seasonals: toArray(project.seasonal),
@@ -512,12 +627,13 @@ export default function App() {
     if (
       !formData.name.trim() || 
       (!formData.isCustomQuote && !formData.watts) || 
+      formData.industries.length === 0 || 
       formData.locations.length === 0 || 
       formData.goals.length === 0 || 
       formData.seasonals.length === 0 || 
       formData.types.length === 0
     ) {
-      alert("Please fill in all required fields and select at least one option for Location, Goal, Seasonal, and Type.");
+      alert("Please fill in all required fields and select at least one option for Industry, Location, Goal, Seasonal, and Type.");
       return;
     }
 
@@ -525,6 +641,7 @@ export default function App() {
       name: formData.name.trim(),
       description: (formData.description || '').trim(),
       watts: formData.isCustomQuote ? 'Custom Quote' : Number(formData.watts),
+      industry: formData.industries,
       location: formData.locations,
       goal: formData.goals,
       seasonal: formData.seasonals,
@@ -532,6 +649,16 @@ export default function App() {
     };
 
     try {
+      // Save custom tags permanently to Firestore
+      const newCustomTags: CustomFilterOptions = {
+        industries: Array.from(new Set([...(savedCustomTags.industries || []), ...formData.industries.filter(i => !DEFAULT_INDUSTRIES.includes(i))])),
+        locations: Array.from(new Set([...(savedCustomTags.locations || []), ...formData.locations.filter(l => !DEFAULT_LOCATIONS.includes(l))])),
+        goals: Array.from(new Set([...(savedCustomTags.goals || []), ...formData.goals.filter(g => !DEFAULT_GOALS.includes(g))])),
+        seasonals: Array.from(new Set([...(savedCustomTags.seasonals || []), ...formData.seasonals.filter(s => !DEFAULT_SEASONALS.includes(s))])),
+        types: Array.from(new Set([...(savedCustomTags.types || []), ...formData.types.filter(t => !DEFAULT_TYPES.includes(t))])),
+      };
+      await setDoc(doc(db, 'metadata', 'custom_tags'), newCustomTags, { merge: true });
+
       if (editingProjectId) {
         await updateDoc(doc(db, 'projects', editingProjectId), payload);
       } else {
@@ -550,10 +677,11 @@ export default function App() {
 
   const exportToCSV = () => {
     if (projects.length === 0) return;
-    const headers = ['Name', 'Watts', 'Locations', 'Goals', 'Seasonals', 'Types', 'Description'];
+    const headers = ['Name', 'Watts', 'Industry', 'Locations', 'Goals', 'Seasonals', 'Types', 'Description'];
     const rows = projects.map(p => [
       `"${(p.name || '').replace(/"/g, '""')}"`,
       typeof p.watts === 'string' ? `"${p.watts}"` : p.watts,
+      `"${toArray(p.industry).join('; ')}"`,
       `"${toArray(p.location).join('; ')}"`,
       `"${toArray(p.goal).join('; ')}"`,
       `"${toArray(p.seasonal).join('; ')}"`,
@@ -650,6 +778,17 @@ export default function App() {
             </div>
 
             <FilterDropdownGroup 
+              title="Industry" 
+              categoryKey="industries" 
+              options={dynamicIndustries} 
+              icon={Briefcase}
+              selectedList={filters.industries}
+              onToggle={toggleFilter}
+              onSelectAll={selectAllFilter}
+              onClear={clearCategoryFilter}
+            />
+
+            <FilterDropdownGroup 
               title="Watts" 
               categoryKey="wattsRanges" 
               options={WATTS_RANGES} 
@@ -730,7 +869,7 @@ export default function App() {
                 <Search className="absolute left-3 top-2.5 text-neutral-400" size={15} />
                 <input 
                   type="text"
-                  placeholder="Type any keyword to match title, description, or type..."
+                  placeholder="Type any keyword to match title, industry, description, or type..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-8 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none transition-all placeholder:text-neutral-400"
@@ -799,6 +938,7 @@ export default function App() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
               {filteredProjects.map((project) => {
+                const projectInds = toArray(project.industry);
                 const projectLocs = toArray(project.location);
                 const projectGoals = toArray(project.goal);
                 const projectSeasons = toArray(project.seasonal);
@@ -824,6 +964,12 @@ export default function App() {
                               {project.watts} Watts
                             </span>
                           )}
+
+                          {projectInds.map(ind => (
+                            <span key={ind} className="text-[11px] font-black uppercase tracking-wider bg-yellow-400 text-black px-2 py-0.5 rounded border border-black">
+                              {ind}
+                            </span>
+                          ))}
 
                           {projectTypes.map(t => (
                             <span key={t} className="text-[11px] font-black uppercase tracking-wider bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded border border-neutral-300">
@@ -975,39 +1121,55 @@ export default function App() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <MultiSelectDropdown
+                  label="Industry"
+                  options={dynamicIndustries}
+                  selected={formData.industries}
+                  onChange={(items) => setFormData({ ...formData, industries: items })}
+                  onCustomAdd={(val) => saveCustomTagToCloud('industries', val)}
+                  icon={Briefcase}
+                  placeholder="Select one or more industries..."
+                />
+
+                <MultiSelectDropdown
                   label="Locations / Regions"
                   options={dynamicLocations}
                   selected={formData.locations}
                   onChange={(items) => setFormData({ ...formData, locations: items })}
+                  onCustomAdd={(val) => saveCustomTagToCloud('locations', val)}
                   icon={MapPin}
                   placeholder="Select one or more regions..."
-                />
-
-                <MultiSelectDropdown
-                  label="Goals"
-                  options={dynamicGoals}
-                  selected={formData.goals}
-                  onChange={(items) => setFormData({ ...formData, goals: items })}
-                  icon={Target}
-                  placeholder="Select one or more goals..."
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <MultiSelectDropdown
+                  label="Goals"
+                  options={dynamicGoals}
+                  selected={formData.goals}
+                  onChange={(items) => setFormData({ ...formData, goals: items })}
+                  onCustomAdd={(val) => saveCustomTagToCloud('goals', val)}
+                  icon={Target}
+                  placeholder="Select one or more goals..."
+                />
+
+                <MultiSelectDropdown
                   label="Seasonals"
                   options={dynamicSeasonals}
                   selected={formData.seasonals}
                   onChange={(items) => setFormData({ ...formData, seasonals: items })}
+                  onCustomAdd={(val) => saveCustomTagToCloud('seasonals', val)}
                   icon={Calendar}
                   placeholder="Select one or more seasons..."
                 />
+              </div>
 
+              <div>
                 <MultiSelectDropdown
                   label="Project Types"
                   options={dynamicTypes}
                   selected={formData.types}
                   onChange={(items) => setFormData({ ...formData, types: items })}
+                  onCustomAdd={(val) => saveCustomTagToCloud('types', val)}
                   icon={Tag}
                   placeholder="Select one or more types..."
                 />
