@@ -150,53 +150,6 @@ function RegionKeyBanner({ isCollapsible = false }: { isCollapsible?: boolean })
   );
 }
 
-function ExpandableDescription({ text }: { text?: string }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const cleanText = text?.trim();
-
-  if (!cleanText) {
-    return (
-      <p className="text-xs font-medium text-neutral-400 italic mb-4 leading-relaxed">
-        No project description provided.
-      </p>
-    );
-  }
-
-  const isLong = cleanText.length > 110 || cleanText.includes('\n');
-
-  return (
-    <div className="mb-4">
-      <p
-        className={`text-xs font-medium text-neutral-600 leading-relaxed whitespace-pre-line ${
-          !isExpanded ? 'line-clamp-3' : ''
-        }`}
-      >
-        {cleanText}
-      </p>
-      {isLong && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsExpanded(!isExpanded);
-          }}
-          className="text-[11px] font-black uppercase tracking-wider text-black hover:text-neutral-700 hover:underline mt-1 inline-flex items-center gap-1 select-none"
-        >
-          {isExpanded ? (
-            <>
-              Show Less <ChevronUp size={12} />
-            </>
-          ) : (
-            <>
-              Read More <ChevronDown size={12} />
-            </>
-          )}
-        </button>
-      )}
-    </div>
-  );
-}
-
 function MultiSelectDropdown({
   label,
   options,
@@ -475,6 +428,124 @@ function FilterDropdownGroup({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function ProjectCard({ project, onEdit, onDelete }: { project: Project; onEdit: () => void; onDelete: () => void; }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const projectInds = toArray(project.industry);
+  const projectLocs = toArray(project.location);
+  const projectGoals = toArray(project.goal);
+  const projectSeasons = toArray(project.seasonal);
+  const projectTypes = toArray(project.type);
+  const isCustom = typeof project.watts === 'string' && (project.watts.toLowerCase().includes('quote') || isNaN(Number(project.watts)));
+
+  return (
+    <div 
+      className={`bg-white border-2 border-black rounded-lg flex flex-col p-5 hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_#FFD100] ${isExpanded ? '' : 'h-80'}`}
+    >
+      {/* HEADER: Watts & Actions */}
+      <div className="flex items-start justify-between gap-2 mb-3 shrink-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {isCustom ? (
+            <span className="bg-amber-400 text-black text-[11px] font-black uppercase tracking-wider px-2 py-1 rounded flex items-center gap-1 shadow-sm border border-black">
+              <Zap size={12} fill="currentColor" />
+              Custom Quote
+            </span>
+          ) : (
+            <span className="bg-black text-yellow-400 text-[11px] font-black uppercase tracking-wider px-2 py-1 rounded flex items-center gap-1 shadow-sm">
+              <Zap size={12} fill="#FFD100" />
+              {project.watts} Watts
+            </span>
+          )}
+
+          {projectInds.map(ind => (
+            <span key={ind} className="text-[10px] font-black uppercase tracking-wider bg-yellow-400 text-black px-1.5 py-0.5 rounded border border-black">
+              {ind}
+            </span>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(); }}
+            title="Edit Project"
+            className="p-1 hover:bg-yellow-100 rounded text-neutral-600 hover:text-black border border-transparent hover:border-black transition-all"
+          >
+            <Pencil size={14} strokeWidth={2.5} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            title="Delete Project"
+            className="p-1 hover:bg-red-100 rounded text-neutral-400 hover:text-red-600 border border-transparent hover:border-red-300 transition-all"
+          >
+            <Trash2 size={14} strokeWidth={2.5} />
+          </button>
+        </div>
+      </div>
+
+      {/* TITLE & PROJECT TYPES */}
+      <div className="shrink-0 mb-3">
+        <h3 className="text-base font-black text-black leading-snug uppercase tracking-tight mb-1">
+          {project.name}
+        </h3>
+        <div className="flex flex-wrap gap-1">
+          {projectTypes.map(t => (
+            <span key={t} className="text-[9px] font-black uppercase tracking-wider bg-neutral-100 text-neutral-700 px-1.5 py-0.5 rounded border border-neutral-300">
+              {t}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* DESCRIPTION */}
+      <div className={`flex-1 overflow-hidden relative ${isExpanded ? '' : 'mb-3'}`}>
+        <p className={`text-[11px] font-medium text-neutral-600 leading-relaxed whitespace-pre-wrap ${!project.description ? 'italic text-neutral-400' : ''} ${!isExpanded ? 'line-clamp-3' : ''}`}>
+          {project.description || "No project description provided."}
+        </p>
+        {!isExpanded && project.description && project.description.length > 100 && (
+          <div className="absolute bottom-0 left-0 w-full h-8 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+        )}
+      </div>
+
+      {/* TAGS (Only visible when expanded) */}
+      {isExpanded && (
+        <div className="pt-4 mt-2 border-t border-neutral-200 shrink-0">
+          <div className="flex flex-wrap gap-1.5">
+            {projectLocs.map(loc => (
+              <span key={loc} className="inline-flex items-center gap-1 text-[9px] font-bold uppercase bg-yellow-100 text-yellow-900 px-1.5 py-0.5 rounded border border-yellow-300">
+                <MapPin size={9} /> {loc}
+              </span>
+            ))}
+            {projectGoals.map(g => (
+              <span key={g} className="inline-flex items-center gap-1 text-[9px] font-bold uppercase bg-neutral-100 text-neutral-800 px-1.5 py-0.5 rounded border border-neutral-300">
+                <Target size={9} /> {g}
+              </span>
+            ))}
+            {projectSeasons.map(s => (
+              <span key={s} className="inline-flex items-center gap-1 text-[9px] font-bold uppercase bg-neutral-100 text-neutral-800 px-1.5 py-0.5 rounded border border-neutral-300">
+                <Calendar size={9} /> {s}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* EXPAND TOGGLE */}
+      <div className="pt-3 mt-auto shrink-0 border-t border-neutral-100">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full text-center text-[10px] font-black uppercase tracking-widest text-black hover:text-yellow-600 bg-neutral-50 hover:bg-yellow-50 py-1.5 rounded border border-neutral-200 transition-colors flex items-center justify-center gap-1"
+        >
+          {isExpanded ? (
+            <>Collapse Details <ChevronUp size={12} strokeWidth={3} /></>
+          ) : (
+            <>View Full Details <ChevronDown size={12} strokeWidth={3} /></>
+          )}
+        </button>
+      </div>
     </div>
   );
 }
@@ -1045,94 +1116,14 @@ export default function App() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-              {filteredProjects.map((project) => {
-                const projectInds = toArray(project.industry);
-                const projectLocs = toArray(project.location);
-                const projectGoals = toArray(project.goal);
-                const projectSeasons = toArray(project.seasonal);
-                const projectTypes = toArray(project.type);
-                const isCustom = typeof project.watts === 'string' && (project.watts.toLowerCase().includes('quote') || isNaN(Number(project.watts)));
-
-                return (
-                  <div 
-                    key={project.id}
-                    className="bg-white border-2 border-black rounded-lg flex flex-col justify-between p-5 hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_#FFD100]"
-                  >
-                    <div>
-                      <div className="flex items-start justify-between gap-2 mb-3">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {isCustom ? (
-                            <span className="bg-amber-400 text-black text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded flex items-center gap-1.5 shadow-sm border border-black">
-                              <Zap size={14} fill="currentColor" />
-                              Custom Quote
-                            </span>
-                          ) : (
-                            <span className="bg-black text-yellow-400 text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded flex items-center gap-1.5 shadow-sm">
-                              <Zap size={14} fill="#FFD100" />
-                              {project.watts} Watts
-                            </span>
-                          )}
-
-                          {projectInds.map(ind => (
-                            <span key={ind} className="text-[11px] font-black uppercase tracking-wider bg-yellow-400 text-black px-2 py-0.5 rounded border border-black">
-                              {ind}
-                            </span>
-                          ))}
-
-                          {projectTypes.map(t => (
-                            <span key={t} className="text-[11px] font-black uppercase tracking-wider bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded border border-neutral-300">
-                              {t}
-                            </span>
-                          ))}
-                        </div>
-
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => handleOpenEditModal(project)}
-                            title="Edit Project"
-                            className="p-1 hover:bg-yellow-100 rounded text-neutral-600 hover:text-black border border-transparent hover:border-black transition-all"
-                          >
-                            <Pencil size={14} strokeWidth={2.5} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteProject(project.id)}
-                            title="Delete Project"
-                            className="p-1 hover:bg-red-100 rounded text-neutral-400 hover:text-red-600 border border-transparent hover:border-red-300 transition-all"
-                          >
-                            <Trash2 size={14} strokeWidth={2.5} />
-                          </button>
-                        </div>
-                      </div>
-
-                      <h3 className="text-base font-black text-black leading-snug mb-2 uppercase tracking-tight">
-                        {project.name}
-                      </h3>
-
-                      <ExpandableDescription text={project.description} />
-                    </div>
-
-                    <div className="pt-3 border-t border-neutral-200">
-                      <div className="flex flex-wrap gap-1.5">
-                        {projectLocs.map(loc => (
-                          <span key={loc} className="inline-flex items-center gap-1 text-[10px] font-bold uppercase bg-yellow-100 text-yellow-900 px-2 py-0.5 rounded border border-yellow-300">
-                            <MapPin size={10} /> {loc}
-                          </span>
-                        ))}
-                        {projectGoals.map(g => (
-                          <span key={g} className="inline-flex items-center gap-1 text-[10px] font-bold uppercase bg-neutral-100 text-neutral-800 px-2 py-0.5 rounded border border-neutral-300">
-                            <Target size={10} /> {g}
-                          </span>
-                        ))}
-                        {projectSeasons.map(s => (
-                          <span key={s} className="inline-flex items-center gap-1 text-[10px] font-bold uppercase bg-neutral-100 text-neutral-800 px-2 py-0.5 rounded border border-neutral-300">
-                            <Calendar size={10} /> {s}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {filteredProjects.map((project) => (
+                <ProjectCard 
+                  key={project.id} 
+                  project={project} 
+                  onEdit={() => handleOpenEditModal(project)} 
+                  onDelete={() => handleDeleteProject(project.id)} 
+                />
+              ))}
             </div>
           )}
         </section>
