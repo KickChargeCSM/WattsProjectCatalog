@@ -7,7 +7,7 @@ interface Project {
   id: string;
   name: string;
   description: string;
-  watts: number;
+  watts: number | string;
   location: string | string[];
   goal: string | string[];
   seasonal: string | string[];
@@ -27,13 +27,14 @@ interface FormDataState {
   name: string;
   description: string;
   watts: string;
+  isCustomQuote: boolean;
   locations: string[];
   goals: string[];
   seasonals: string[];
   types: string[];
 }
 
-const WATTS_RANGES = ['Under 25', '25-50', 'Over 50'];
+const WATTS_RANGES = ['Under 25', '25-50', 'Over 50', 'Custom Quote'];
 const DEFAULT_LOCATIONS = ['Northeast', 'Midwest', 'South', 'West'];
 const DEFAULT_GOALS = ['Recruitment', 'Company Culture', 'Brand Awareness', 'New Customers', 'Existing Customers', 'Events'];
 const DEFAULT_SEASONALS = ['General Holiday', 'Fall', 'Winter', 'Spring', 'Summer'];
@@ -66,8 +67,11 @@ const toArray = (val: string | string[] | undefined | null): string[] => {
 };
 
 const getWattsRange = (watts: number | string): string => {
+  if (typeof watts === 'string' && (watts.toLowerCase().includes('quote') || isNaN(Number(watts)))) {
+    return 'Custom Quote';
+  }
   const w = Number(watts);
-  if (isNaN(w) || w < 25) return 'Under 25';
+  if (w < 25) return 'Under 25';
   if (w >= 25 && w <= 50) return '25-50';
   return 'Over 50';
 };
@@ -340,6 +344,7 @@ export default function App() {
     name: '',
     description: '',
     watts: '',
+    isCustomQuote: false,
     locations: [DEFAULT_LOCATIONS[0]],
     goals: [DEFAULT_GOALS[0]],
     seasonals: [DEFAULT_SEASONALS[0]],
@@ -409,7 +414,7 @@ export default function App() {
     setSearchQuery('');
   };
 
-  // Multi-select matching logic (Project matches if it has ANY of the selected tags)
+  // Multi-select matching logic
   const filteredProjects = useMemo(() => {
     return projects.filter(p => {
       const pWattsRange = getWattsRange(p.watts);
@@ -425,7 +430,7 @@ export default function App() {
       const matchType = filters.types.length === 0 || pTypes.some(t => filters.types.includes(t));
 
       const q = searchQuery.toLowerCase().trim();
-      const searchableText = `${p.name || ''} ${p.description || ''} ${pLocs.join(' ')} ${pGoals.join(' ')} ${pSeasons.join(' ')} ${pTypes.join(' ')}`.toLowerCase();
+      const searchableText = `${p.name || ''} ${p.description || ''} ${pLocs.join(' ')} ${pGoals.join(' ')} ${pSeasons.join(' ')} ${pTypes.join(' ')} ${p.watts}`.toLowerCase();
       const matchSearch = !q || searchableText.includes(q);
 
       return matchWatts && matchLocation && matchGoal && matchSeasonal && matchType && matchSearch;
@@ -440,6 +445,7 @@ export default function App() {
       name: '',
       description: '',
       watts: '',
+      isCustomQuote: false,
       locations: [DEFAULT_LOCATIONS[0]],
       goals: [DEFAULT_GOALS[0]],
       seasonals: [DEFAULT_SEASONALS[0]],
@@ -450,10 +456,12 @@ export default function App() {
 
   const handleOpenEditModal = (project: Project) => {
     setEditingProjectId(project.id);
+    const isQuote = typeof project.watts === 'string' && (project.watts.toLowerCase().includes('quote') || isNaN(Number(project.watts)));
     setFormData({
       name: project.name || '',
       description: project.description || '',
-      watts: String(project.watts || ''),
+      watts: isQuote ? '' : String(project.watts || ''),
+      isCustomQuote: isQuote,
       locations: toArray(project.location),
       goals: toArray(project.goal),
       seasonals: toArray(project.seasonal),
@@ -476,7 +484,7 @@ export default function App() {
 
     if (
       !formData.name.trim() || 
-      !formData.watts || 
+      (!formData.isCustomQuote && !formData.watts) || 
       formData.locations.length === 0 || 
       formData.goals.length === 0 || 
       formData.seasonals.length === 0 || 
@@ -489,7 +497,7 @@ export default function App() {
     const payload = {
       name: formData.name.trim(),
       description: formData.description.trim(),
-      watts: Number(formData.watts),
+      watts: formData.isCustomQuote ? 'Custom Quote' : Number(formData.watts),
       location: formData.locations,
       goal: formData.goals,
       seasonal: formData.seasonals,
@@ -518,7 +526,7 @@ export default function App() {
     const headers = ['Name', 'Watts', 'Locations', 'Goals', 'Seasonals', 'Types', 'Description'];
     const rows = projects.map(p => [
       `"${(p.name || '').replace(/"/g, '""')}"`,
-      p.watts,
+      typeof p.watts === 'string' ? `"${p.watts}"` : p.watts,
       `"${toArray(p.location).join('; ')}"`,
       `"${toArray(p.goal).join('; ')}"`,
       `"${toArray(p.seasonal).join('; ')}"`,
@@ -598,7 +606,7 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full flex flex-col md:flex-row gap-6">
-        {/* SIDEBAR: Filters & Region Key */}
+        {/* SIDEBAR */}
         <aside className={`md:w-72 flex-shrink-0 ${isMobileFiltersOpen ? 'block' : 'hidden'} md:block`}>
           <div className="bg-white border-2 border-black rounded-lg p-5 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             <div className="flex justify-between items-center mb-4 pb-3 border-b-2 border-black">
@@ -615,8 +623,9 @@ export default function App() {
               )}
             </div>
 
+            {/* Renamed Filter Group */}
             <FilterDropdownGroup 
-              title="Watts To Use" 
+              title="Watts" 
               categoryKey="wattsRanges" 
               options={WATTS_RANGES} 
               icon={Activity}
@@ -686,7 +695,7 @@ export default function App() {
           </div>
         </aside>
 
-        {/* MAIN CARDS SECTION */}
+        {/* MAIN CARDS */}
         <section className="flex-1 min-w-0">
           <div className="bg-white border-2 border-black rounded-lg p-4 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col sm:flex-row gap-4 items-center justify-between">
             <div className="relative w-full sm:w-80">
@@ -765,6 +774,7 @@ export default function App() {
                 const projectGoals = toArray(project.goal);
                 const projectSeasons = toArray(project.seasonal);
                 const projectTypes = toArray(project.type);
+                const isCustom = typeof project.watts === 'string' && (project.watts.toLowerCase().includes('quote') || isNaN(Number(project.watts)));
 
                 return (
                   <div 
@@ -774,10 +784,18 @@ export default function App() {
                     <div>
                       <div className="flex items-start justify-between gap-2 mb-3">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="bg-black text-yellow-400 text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded flex items-center gap-1.5 shadow-sm">
-                            <Zap size={14} fill="#FFD100" />
-                            {project.watts} Watts
-                          </span>
+                          {isCustom ? (
+                            <span className="bg-amber-400 text-black text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded flex items-center gap-1.5 shadow-sm border border-black">
+                              <Zap size={14} fill="currentColor" />
+                              Custom Quote
+                            </span>
+                          ) : (
+                            <span className="bg-black text-yellow-400 text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded flex items-center gap-1.5 shadow-sm">
+                              <Zap size={14} fill="#FFD100" />
+                              {project.watts} Watts
+                            </span>
+                          )}
+
                           {projectTypes.map(t => (
                             <span key={t} className="text-[11px] font-black uppercase tracking-wider bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded border border-neutral-300">
                               {t}
@@ -839,7 +857,7 @@ export default function App() {
         </section>
       </main>
 
-      {/* ADD / EDIT PROJECT MODAL (With Multi-Select Dropdowns) */}
+      {/* ADD / EDIT PROJECT MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-white border-4 border-black rounded-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto shadow-[8px_8px_0px_0px_#FFD100]">
@@ -877,18 +895,41 @@ export default function App() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-black uppercase tracking-wider mb-1 text-black">
-                    Watts Needed *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    placeholder="e.g., 45"
-                    className="w-full px-3 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none"
-                    value={formData.watts}
-                    onChange={(e) => setFormData({ ...formData, watts: e.target.value })}
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-black uppercase tracking-wider text-black">
+                      Watts *
+                    </label>
+                    {/* CUSTOM QUOTE TOGGLE */}
+                    <label className="flex items-center gap-1 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={formData.isCustomQuote}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          isCustomQuote: e.target.checked,
+                          watts: e.target.checked ? '' : formData.watts
+                        })}
+                        className="rounded border-neutral-400 text-yellow-400 focus:ring-0 w-3.5 h-3.5"
+                      />
+                      <span className="text-[11px] font-black uppercase text-amber-700">Custom Quote</span>
+                    </label>
+                  </div>
+
+                  {formData.isCustomQuote ? (
+                    <div className="w-full px-3 py-2 text-xs font-black text-amber-800 bg-amber-100 border-2 border-amber-400 rounded flex items-center justify-center uppercase tracking-wide">
+                      Custom Quote Selected
+                    </div>
+                  ) : (
+                    <input
+                      type="number"
+                      required={!formData.isCustomQuote}
+                      min="1"
+                      placeholder="e.g., 45"
+                      className="w-full px-3 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none"
+                      value={formData.watts}
+                      onChange={(e) => setFormData({ ...formData, watts: e.target.value })}
+                    />
+                  )}
                 </div>
               </div>
 
