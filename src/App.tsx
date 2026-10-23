@@ -1019,13 +1019,12 @@ export default function App() {
 
         {/* MAIN PROJECTS SECTION */}
         <section className="flex-1 min-w-0">
-          <div className="bg-white border-2 border-black rounded-lg p-4 sm:p-5 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-            <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-end justify-between">
-              
-              {/* Search Field - Dominant flexible width */}
-              <div className="flex-1 min-w-[200px]">
-                <label className="block text-[11px] font-black uppercase tracking-wider text-black mb-1.5 flex items-center gap-1.5 whitespace-nowrap">
-                  <Search size={13} className="text-yellow-500" /> Search Project Types & Keywords
+          <div className="bg-white border-2 border-black rounded-lg p-4 sm:p-5 mb-6 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex flex-col xl:flex-row gap-4 items-stretch xl:items-end justify-between">
+            <div className="flex flex-col sm:flex-row gap-3 flex-1 items-stretch sm:items-end">
+              {/* Search Bar - Expands to fill available width */}
+              <div className="flex-1 min-w-0">
+                <label className="block text-[11px] font-black uppercase tracking-wider text-black mb-1.5 flex items-center gap-1.5">
+                  <Search size={13} className="text-yellow-500 shrink-0" /> Search Projects
                 </label>
                 <div className="relative">
                   <Search className="absolute left-3 top-2.5 text-neutral-400" size={15} />
@@ -1048,9 +1047,9 @@ export default function App() {
               </div>
 
               {/* Sort Dropdown - Compact & neatly proportioned */}
-              <div className="w-full sm:w-44 shrink-0">
-                <label className="block text-[11px] font-black uppercase tracking-wider text-black mb-1.5 flex items-center gap-1.5 whitespace-nowrap">
-                  <ArrowUpDown size={13} className="text-yellow-500" /> Sort Catalog
+              <div className="w-full sm:w-36 shrink-0">
+                <label className="block text-[11px] font-black uppercase tracking-wider text-black mb-1.5 flex items-center gap-1.5">
+                  <ArrowUpDown size={13} className="text-yellow-500 shrink-0" /> Sort
                 </label>
                 <div className="relative">
                   <select
@@ -1058,27 +1057,26 @@ export default function App() {
                     onChange={(e) => setSortBy(e.target.value as SortOption)}
                     className="w-full appearance-none bg-white border-2 border-neutral-300 rounded px-3 py-2 pr-8 text-xs font-bold text-neutral-800 focus:border-black focus:outline-none cursor-pointer hover:border-neutral-400 transition-colors"
                   >
-                    <option value="newest">Newest First</option>
+                    <option value="newest">Newest</option>
                     <option value="alphabetical-asc">A → Z</option>
                     <option value="alphabetical-desc">Z → A</option>
-                    <option value="oldest">Oldest First</option>
+                    <option value="oldest">Oldest</option>
                   </select>
                   <ChevronDown size={14} className="absolute right-2.5 top-2.5 text-neutral-500 pointer-events-none" />
                 </div>
               </div>
+            </div>
 
-              {/* Project Count & Filter Badge - Evenly balanced on the right */}
-              <div className="flex items-center gap-2.5 shrink-0 justify-between md:justify-end md:h-[38px] pt-1 md:pt-0">
-                <span className="text-xs font-black uppercase tracking-wider text-neutral-600 whitespace-nowrap">
-                  Showing <span className="text-black font-extrabold text-sm">{filteredProjects.length}</span> of {projects.length} Projects
+            {/* Project Count & Filter Badge */}
+            <div className="flex items-center justify-between xl:justify-end gap-2.5 shrink-0 pt-2 xl:pt-0 border-t xl:border-t-0 border-neutral-100">
+              <span className="text-xs font-black uppercase tracking-wider text-neutral-600">
+                Showing <span className="text-black font-extrabold text-sm">{filteredProjects.length}</span> of {projects.length} Projects
+              </span>
+              {activeFilterCount > 0 && (
+                <span className="bg-yellow-400 text-black text-[11px] font-black px-2 py-0.5 rounded-full border border-black">
+                  {activeFilterCount} Active
                 </span>
-                {activeFilterCount > 0 && (
-                  <span className="bg-yellow-400 text-black text-[11px] font-black px-2 py-0.5 rounded-full border border-black whitespace-nowrap">
-                    {activeFilterCount} Active
-                  </span>
-                )}
-              </div>
-
+              )}
             </div>
           </div>
 
