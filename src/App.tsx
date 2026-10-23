@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { Plus, Filter, Zap, Map, X, Search, Activity, Tag, Calendar, MapPin, Target, RotateCcw, Download, Pencil, Trash2, Wifi, WifiOff, ChevronDown, ChevronUp, Briefcase } from 'lucide-react';
+import { Plus, Filter, Zap, Map, X, Search, Activity, Tag, Calendar, MapPin, Target, RotateCcw, Download, Pencil, Trash2, Wifi, WifiOff, ChevronDown, ChevronUp, Briefcase, Maximize2, ExternalLink, Folder } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -13,6 +13,8 @@ interface Project {
   goal: string | string[];
   seasonal: string | string[];
   type: string | string[];
+  examples?: string;
+  resources?: string;
   createdAt?: any;
 }
 
@@ -35,6 +37,8 @@ interface FormDataState {
   goals: string[];
   seasonals: string[];
   types: string[];
+  examples: string;
+  resources: string;
 }
 
 interface CustomFilterOptions {
@@ -432,119 +436,100 @@ function FilterDropdownGroup({
   );
 }
 
-function ProjectCard({ project, onEdit, onDelete }: { project: Project; onEdit: () => void; onDelete: () => void; }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
+function ProjectCard({ 
+  project, 
+  onEdit, 
+  onDelete, 
+  onView 
+}: { 
+  project: Project; 
+  onEdit: () => void; 
+  onDelete: () => void; 
+  onView: () => void; 
+}) {
   const projectInds = toArray(project.industry);
   const projectLocs = toArray(project.location);
   const projectGoals = toArray(project.goal);
   const projectSeasons = toArray(project.seasonal);
   const projectTypes = toArray(project.type);
   const isCustom = typeof project.watts === 'string' && (project.watts.toLowerCase().includes('quote') || isNaN(Number(project.watts)));
+  const totalTags = projectLocs.length + projectGoals.length + projectSeasons.length + projectTypes.length;
 
   return (
     <div 
-      className={`bg-white border-2 border-black rounded-lg flex flex-col p-5 hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_#FFD100] ${isExpanded ? '' : 'h-80'}`}
+      onClick={onView}
+      className="bg-white border-2 border-black rounded-lg aspect-square w-full p-4 sm:p-5 flex flex-col justify-between hover:translate-x-[-2px] hover:translate-y-[-2px] transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_#FFD100] cursor-pointer group select-none overflow-hidden relative"
     >
-      {/* HEADER: Watts & Actions */}
-      <div className="flex items-start justify-between gap-2 mb-3 shrink-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {isCustom ? (
-            <span className="bg-amber-400 text-black text-[11px] font-black uppercase tracking-wider px-2 py-1 rounded flex items-center gap-1 shadow-sm border border-black">
-              <Zap size={12} fill="currentColor" />
-              Quote
-            </span>
-          ) : (
-            <span className="bg-black text-yellow-400 text-[11px] font-black uppercase tracking-wider px-2 py-1 rounded flex items-center gap-1 shadow-sm">
-              <Zap size={12} fill="#FFD100" />
-              {project.watts} Watts
-            </span>
-          )}
-
-          {projectInds.map(ind => (
-            <span key={ind} className="text-[10px] font-black uppercase tracking-wider bg-yellow-400 text-black px-1.5 py-0.5 rounded border border-black">
-              {ind}
-            </span>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-1">
-          <button
-            onClick={(e) => { e.stopPropagation(); onEdit(); }}
-            title="Edit Project"
-            className="p-1 hover:bg-yellow-100 rounded text-neutral-600 hover:text-black border border-transparent hover:border-black transition-all"
-          >
-            <Pencil size={14} strokeWidth={2.5} />
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            title="Delete Project"
-            className="p-1 hover:bg-red-100 rounded text-neutral-400 hover:text-red-600 border border-transparent hover:border-red-300 transition-all"
-          >
-            <Trash2 size={14} strokeWidth={2.5} />
-          </button>
-        </div>
-      </div>
-
-      {/* TITLE & PROJECT TYPES */}
-      <div className="shrink-0 mb-3">
-        <h3 className="text-base font-black text-black leading-snug uppercase tracking-tight mb-1">
-          {project.name}
-        </h3>
-        <div className="flex flex-wrap gap-1">
-          {projectTypes.map(t => (
-            <span key={t} className="text-[9px] font-black uppercase tracking-wider bg-neutral-100 text-neutral-700 px-1.5 py-0.5 rounded border border-neutral-300">
-              {t}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* DESCRIPTION */}
-      <div className={`flex-1 overflow-hidden relative ${isExpanded ? '' : 'mb-3'}`}>
-        <p className={`text-[11px] font-medium text-neutral-600 leading-relaxed whitespace-pre-wrap ${!project.description ? 'italic text-neutral-400' : ''} ${!isExpanded ? 'line-clamp-3' : ''}`}>
-          {project.description || "No project description provided."}
-        </p>
-        {!isExpanded && project.description && project.description.length > 100 && (
-          <div className="absolute bottom-0 left-0 w-full h-8 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
-        )}
-      </div>
-
-      {/* TAGS (Only visible when expanded) */}
-      {isExpanded && (
-        <div className="pt-4 mt-2 border-t border-neutral-200 shrink-0">
-          <div className="flex flex-wrap gap-1.5">
-            {projectLocs.map(loc => (
-              <span key={loc} className="inline-flex items-center gap-1 text-[9px] font-bold uppercase bg-yellow-100 text-yellow-900 px-1.5 py-0.5 rounded border border-yellow-300">
-                <MapPin size={9} /> {loc}
+      <div>
+        <div className="flex items-start justify-between gap-1.5 mb-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {isCustom ? (
+              <span className="bg-amber-400 text-black text-[10px] sm:text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1 shadow-sm border border-black">
+                <Zap size={11} fill="currentColor" />
+                Quote
               </span>
-            ))}
-            {projectGoals.map(g => (
-              <span key={g} className="inline-flex items-center gap-1 text-[9px] font-bold uppercase bg-neutral-100 text-neutral-800 px-1.5 py-0.5 rounded border border-neutral-300">
-                <Target size={9} /> {g}
+            ) : (
+              <span className="bg-black text-yellow-400 text-[10px] sm:text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1 shadow-sm">
+                <Zap size={11} fill="#FFD100" />
+                {project.watts} Watts
               </span>
-            ))}
-            {projectSeasons.map(s => (
-              <span key={s} className="inline-flex items-center gap-1 text-[9px] font-bold uppercase bg-neutral-100 text-neutral-800 px-1.5 py-0.5 rounded border border-neutral-300">
-                <Calendar size={9} /> {s}
+            )}
+
+            {projectInds.slice(0, 1).map(ind => (
+              <span key={ind} className="text-[10px] font-black uppercase tracking-wider bg-yellow-400 text-black px-1.5 py-0.5 rounded border border-black truncate max-w-[110px]">
+                {ind}
               </span>
             ))}
           </div>
-        </div>
-      )}
 
-      {/* EXPAND TOGGLE */}
-      <div className="pt-3 mt-auto shrink-0 border-t border-neutral-100">
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full text-center text-[10px] font-black uppercase tracking-widest text-black hover:text-yellow-600 bg-neutral-50 hover:bg-yellow-50 py-1.5 rounded border border-neutral-200 transition-colors flex items-center justify-center gap-1"
-        >
-          {isExpanded ? (
-            <>Collapse Details <ChevronUp size={12} strokeWidth={3} /></>
-          ) : (
-            <>View Full Details <ChevronDown size={12} strokeWidth={3} /></>
+          <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(); }}
+              title="Edit Project"
+              className="p-1 hover:bg-yellow-100 rounded text-neutral-600 hover:text-black border border-transparent hover:border-black transition-all"
+            >
+              <Pencil size={13} strokeWidth={2.5} />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              title="Delete Project"
+              className="p-1 hover:bg-red-100 rounded text-neutral-400 hover:text-red-600 border border-transparent hover:border-red-300 transition-all"
+            >
+              <Trash2 size={13} strokeWidth={2.5} />
+            </button>
+          </div>
+        </div>
+
+        <h3 className="text-sm sm:text-base font-black text-black leading-snug uppercase tracking-tight line-clamp-2 mb-1.5 group-hover:text-yellow-600 transition-colors">
+          {project.name}
+        </h3>
+
+        <div className="flex flex-wrap gap-1 mb-2">
+          {projectTypes.slice(0, 2).map(t => (
+            <span key={t} className="text-[9px] font-black uppercase tracking-wider bg-neutral-100 text-neutral-700 px-1.5 py-0.5 rounded border border-neutral-300 truncate max-w-[120px]">
+              {t}
+            </span>
+          ))}
+          {projectTypes.length > 2 && (
+            <span className="text-[9px] font-bold text-neutral-500 self-center">
+              +{projectTypes.length - 2}
+            </span>
           )}
-        </button>
+        </div>
+
+        <p className="text-[11px] sm:text-xs font-medium text-neutral-600 line-clamp-3 leading-relaxed">
+          {project.description?.trim() || <span className="italic text-neutral-400">No project description provided.</span>}
+        </p>
+      </div>
+
+      <div className="pt-2 border-t border-neutral-200 flex items-center justify-between text-[10px] font-black uppercase text-neutral-500">
+        <span className="flex items-center gap-1 text-neutral-700">
+          <Tag size={11} className="text-yellow-500" />
+          {totalTags} tags
+        </span>
+        <span className="bg-yellow-400 text-black px-2 py-0.5 rounded border border-black font-black flex items-center gap-1 group-hover:bg-yellow-500 transition-all shadow-[1px_1px_0px_0px_#000000]">
+          <Maximize2 size={10} /> View All
+        </span>
       </div>
     </div>
   );
@@ -558,6 +543,7 @@ export default function App() {
   
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [viewingProject, setViewingProject] = useState<Project | null>(null);
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState<boolean>(false);
   const [isModalRegionKeyOpen, setIsModalRegionKeyOpen] = useState<boolean>(false);
 
@@ -588,7 +574,9 @@ export default function App() {
     locations: [DEFAULT_LOCATIONS.find(l => l !== 'Any') || 'Northeast'],
     goals: [DEFAULT_GOALS.find(g => g !== 'Any') || 'Recruitment'],
     seasonals: [DEFAULT_SEASONALS.find(s => s !== 'Any') || 'General Holiday'],
-    types: [DEFAULT_TYPES.find(t => t !== 'Any') || 'Collateral']
+    types: [DEFAULT_TYPES.find(t => t !== 'Any') || 'Collateral'],
+    examples: '',
+    resources: ''
   });
 
   useEffect(() => {
@@ -748,7 +736,9 @@ export default function App() {
         const inGoal = pGoals.some(g => g.toLowerCase().includes(term));
         const inLoc = pLocs.some(l => l.toLowerCase().includes(term));
         const inWatts = String(p.watts).toLowerCase().includes(term);
-        return inTitle || inDesc || inIndustry || inType || inGoal || inLoc || inWatts;
+        const inExamples = p.examples && p.examples.toLowerCase().includes(term);
+        const inResources = p.resources && p.resources.toLowerCase().includes(term);
+        return inTitle || inDesc || inIndustry || inType || inGoal || inLoc || inWatts || inExamples || inResources;
       });
 
       return matchWatts && matchIndustry && matchLocation && matchGoal && matchSeasonal && matchType && matchSearch;
@@ -771,7 +761,9 @@ export default function App() {
       locations: [DEFAULT_LOCATIONS.find(l => l !== 'Any') || 'Northeast'],
       goals: [DEFAULT_GOALS.find(g => g !== 'Any') || 'Recruitment'],
       seasonals: [DEFAULT_SEASONALS.find(s => s !== 'Any') || 'General Holiday'],
-      types: [DEFAULT_TYPES.find(t => t !== 'Any') || 'Collateral']
+      types: [DEFAULT_TYPES.find(t => t !== 'Any') || 'Collateral'],
+      examples: '',
+      resources: ''
     });
     setIsModalOpen(true);
   };
@@ -789,7 +781,9 @@ export default function App() {
       locations: toArray(project.location),
       goals: toArray(project.goal),
       seasonals: toArray(project.seasonal),
-      types: toArray(project.type)
+      types: toArray(project.type),
+      examples: project.examples || '',
+      resources: project.resources || ''
     });
     setIsModalOpen(true);
   };
@@ -828,6 +822,8 @@ export default function App() {
       goal: formData.goals,
       seasonal: formData.seasonals,
       type: formData.types,
+      examples: (formData.examples || '').trim(),
+      resources: (formData.resources || '').trim(),
     };
 
     try {
@@ -858,7 +854,7 @@ export default function App() {
 
   const exportToCSV = () => {
     if (projects.length === 0) return;
-    const headers = ['Name', 'Watts', 'Industry', 'Locations', 'Goals', 'Seasonals', 'Types', 'Description'];
+    const headers = ['Name', 'Watts', 'Industry', 'Locations', 'Goals', 'Seasonals', 'Types', 'Description', 'Examples', 'Resources'];
     const rows = projects.map(p => [
       `"${(p.name || '').replace(/"/g, '""')}"`,
       typeof p.watts === 'string' ? `"${p.watts}"` : p.watts,
@@ -867,7 +863,9 @@ export default function App() {
       `"${toArray(p.goal).join('; ')}"`,
       `"${toArray(p.seasonal).join('; ')}"`,
       `"${toArray(p.type).join('; ')}"`,
-      `"${(p.description || '').replace(/"/g, '""')}"`
+      `"${(p.description || '').replace(/"/g, '""')}"`,
+      `"${(p.examples || '').replace(/"/g, '""')}"`,
+      `"${(p.resources || '').replace(/"/g, '""')}"`
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -1122,12 +1120,201 @@ export default function App() {
                   project={project} 
                   onEdit={() => handleOpenEditModal(project)} 
                   onDelete={() => handleDeleteProject(project.id)} 
+                  onView={() => setViewingProject(project)} 
                 />
               ))}
             </div>
           )}
         </section>
       </main>
+
+      {/* EXPANDED PROJECT DETAILS MODAL */}
+      {viewingProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setViewingProject(null)}>
+          <div 
+            className="bg-white border-4 border-black rounded-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto shadow-[8px_8px_0px_0px_#FFD100] relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex justify-between items-start gap-3 pb-4 mb-4 border-b-2 border-black">
+              <div>
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  {typeof viewingProject.watts === 'string' && (viewingProject.watts.toLowerCase().includes('quote') || isNaN(Number(viewingProject.watts))) ? (
+                    <span className="bg-amber-400 text-black text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded flex items-center gap-1.5 shadow-sm border border-black">
+                      <Zap size={14} fill="currentColor" />
+                      Quote
+                    </span>
+                  ) : (
+                    <span className="bg-black text-yellow-400 text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded flex items-center gap-1.5 shadow-sm">
+                      <Zap size={14} fill="#FFD100" />
+                      {viewingProject.watts} Watts
+                    </span>
+                  )}
+
+                  {toArray(viewingProject.industry).map(ind => (
+                    <span key={ind} className="text-xs font-black uppercase tracking-wider bg-yellow-400 text-black px-2 py-0.5 rounded border border-black">
+                      {ind}
+                    </span>
+                  ))}
+                </div>
+
+                <h2 className="text-xl sm:text-2xl font-black uppercase text-black tracking-tight leading-tight">
+                  {viewingProject.name}
+                </h2>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button 
+                  onClick={() => {
+                    const p = viewingProject;
+                    setViewingProject(null);
+                    handleOpenEditModal(p);
+                  }}
+                  className="p-1.5 hover:bg-yellow-100 rounded text-neutral-700 hover:text-black border border-neutral-300 hover:border-black transition-all flex items-center gap-1 text-xs font-bold"
+                  title="Edit this project"
+                >
+                  <Pencil size={15} strokeWidth={2.5} />
+                  <span className="hidden sm:inline">Edit</span>
+                </button>
+                <button 
+                  onClick={() => setViewingProject(null)}
+                  className="p-1.5 text-neutral-500 hover:text-black rounded hover:bg-neutral-100 transition-colors"
+                  title="Close modal"
+                >
+                  <X size={22} />
+                </button>
+              </div>
+            </div>
+
+            {/* Full Description */}
+            <div className="mb-5">
+              <h4 className="text-xs font-black uppercase tracking-wider text-neutral-500 mb-1.5">
+                Project Description
+              </h4>
+              <div className="bg-neutral-50 border-2 border-neutral-200 rounded-lg p-3.5 text-xs sm:text-sm text-neutral-800 leading-relaxed whitespace-pre-wrap">
+                {viewingProject.description?.trim() || <span className="italic text-neutral-400">No project description provided.</span>}
+              </div>
+            </div>
+
+            {/* Examples & Resources (Optional Fields) */}
+            {(viewingProject.examples?.trim() || viewingProject.resources?.trim()) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+                {viewingProject.examples?.trim() && (
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-neutral-500 mb-1.5 flex items-center gap-1.5">
+                      <ExternalLink size={13} className="text-yellow-500" /> Examples
+                    </h4>
+                    <div className="bg-neutral-50 border-2 border-neutral-200 rounded-lg p-3.5 text-xs text-neutral-800 leading-relaxed whitespace-pre-wrap break-words">
+                      {viewingProject.examples.trim()}
+                    </div>
+                  </div>
+                )}
+
+                {viewingProject.resources?.trim() && (
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-neutral-500 mb-1.5 flex items-center gap-1.5">
+                      <Folder size={13} className="text-yellow-500" /> Resources
+                    </h4>
+                    <div className="bg-neutral-50 border-2 border-neutral-200 rounded-lg p-3.5 text-xs text-neutral-800 leading-relaxed whitespace-pre-wrap break-words">
+                      {viewingProject.resources.trim()}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Categorized Tags */}
+            <div className="space-y-4">
+              {/* Project Types */}
+              {toArray(viewingProject.type).length > 0 && (
+                <div>
+                  <h4 className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-1.5 flex items-center gap-1.5">
+                    <Tag size={13} className="text-yellow-500" /> Project Types
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {toArray(viewingProject.type).map(t => (
+                      <span key={t} className="text-xs font-bold uppercase tracking-wider bg-neutral-100 text-neutral-800 px-2.5 py-1 rounded border border-neutral-300">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Locations / Regions */}
+              {toArray(viewingProject.location).length > 0 && (
+                <div>
+                  <h4 className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-1.5 flex items-center gap-1.5">
+                    <MapPin size={13} className="text-yellow-500" /> Locations / Regions
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {toArray(viewingProject.location).map(loc => (
+                      <span key={loc} className="text-xs font-bold uppercase tracking-wider bg-yellow-100 text-yellow-900 px-2.5 py-1 rounded border border-yellow-300 flex items-center gap-1">
+                        <MapPin size={11} /> {loc}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Goals */}
+              {toArray(viewingProject.goal).length > 0 && (
+                <div>
+                  <h4 className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-1.5 flex items-center gap-1.5">
+                    <Target size={13} className="text-yellow-500" /> Campaign Goals
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {toArray(viewingProject.goal).map(g => (
+                      <span key={g} className="text-xs font-bold uppercase tracking-wider bg-neutral-100 text-neutral-800 px-2.5 py-1 rounded border border-neutral-300 flex items-center gap-1">
+                        <Target size={11} /> {g}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Seasonals */}
+              {toArray(viewingProject.seasonal).length > 0 && (
+                <div>
+                  <h4 className="text-[11px] font-black uppercase tracking-wider text-neutral-500 mb-1.5 flex items-center gap-1.5">
+                    <Calendar size={13} className="text-yellow-500" /> Seasonal Occasions
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {toArray(viewingProject.seasonal).map(s => (
+                      <span key={s} className="text-xs font-bold uppercase tracking-wider bg-neutral-100 text-neutral-800 px-2.5 py-1 rounded border border-neutral-300 flex items-center gap-1">
+                        <Calendar size={11} /> {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-3 pt-6 mt-6 border-t-2 border-black">
+              <button
+                type="button"
+                onClick={() => setViewingProject(null)}
+                className="px-5 py-2 text-xs font-black uppercase tracking-wider text-black bg-neutral-200 hover:bg-neutral-300 rounded border-2 border-black transition-colors"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const p = viewingProject;
+                  setViewingProject(null);
+                  handleOpenEditModal(p);
+                }}
+                className="px-5 py-2 text-xs font-black uppercase tracking-wider text-black bg-yellow-400 hover:bg-yellow-500 rounded border-2 border-black shadow-[3px_3px_0px_0px_#000000] hover:shadow-[1px_1px_0px_0px_#000000] transition-all flex items-center gap-1.5"
+              >
+                <Pencil size={14} strokeWidth={2.5} />
+                Edit Project
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ADD / EDIT MODAL */}
       {isModalOpen && (
@@ -1306,6 +1493,35 @@ export default function App() {
                   icon={Tag}
                   placeholder="Select one or more types..."
                 />
+              </div>
+
+              {/* NEW OPTIONAL FIELDS: EXAMPLES & RESOURCES */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider mb-1 text-black">
+                    Examples (Optional)
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Reference links, past campaign examples, asset links..."
+                    className="w-full px-3 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none"
+                    value={formData.examples}
+                    onChange={(e) => setFormData({ ...formData, examples: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-wider mb-1 text-black">
+                    Resources (Optional)
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Documentation, vendor guidelines, templates, files..."
+                    className="w-full px-3 py-2 text-xs font-semibold border-2 border-neutral-300 rounded focus:border-black focus:outline-none"
+                    value={formData.resources}
+                    onChange={(e) => setFormData({ ...formData, resources: e.target.value })}
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t-2 border-black">
