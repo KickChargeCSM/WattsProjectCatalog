@@ -56,7 +56,7 @@ const DEFAULT_INDUSTRIES = ['Any', 'Electric', 'Solar', 'Roofing', 'Plumbing', '
 const DEFAULT_LOCATIONS = ['Any', 'Northeast', 'Midwest', 'South', 'West'];
 const DEFAULT_GOALS = ['Any', 'Recruitment', 'Company Culture', 'Brand Awareness', 'New Customers', 'Existing Customers', 'Events'];
 const DEFAULT_SEASONALS = ['Any', 'General Holiday', 'Fall', 'Winter', 'Spring', 'Summer'];
-const DEFAULT_TYPES = ['Any', 'Collateral', 'OOH', 'Apparel', 'Vehicle', 'Digital/Social Marketing', 'Print Marketing'];
+const DEFAULT_TYPES = ['Collateral', 'OOH', 'Apparel', 'Vehicle', 'Digital/Social Marketing', 'Print Marketing'];
 
 const REGION_KEY_DATA = [
   { 
@@ -152,6 +152,48 @@ function RegionKeyBanner({ isCollapsible = false }: { isCollapsible?: boolean })
         </div>
       )}
     </div>
+  );
+}
+
+function ClickableText({ text }: { text: string }) {
+  if (!text) return null;
+
+  const urlPattern = /((?:https?:\/\/|www\.)[^\s]+)/g;
+  const parts = text.split(urlPattern);
+
+  return (
+    <>
+      {parts.map((part, index) => {
+        if (/^(?:https?:\/\/|www\.)[^\s]+/i.test(part)) {
+          let cleanUrl = part;
+          let trailingPunct = '';
+          while (cleanUrl && /[.,;:!?)]$/.test(cleanUrl)) {
+            trailingPunct = cleanUrl.slice(-1) + trailingPunct;
+            cleanUrl = cleanUrl.slice(0, -1);
+          }
+          const href = cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')
+            ? cleanUrl
+            : `https://${cleanUrl}`;
+
+          return (
+            <React.Fragment key={index}>
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-blue-600 hover:text-blue-800 underline font-bold break-all inline-flex items-center gap-0.5 hover:underline decoration-2"
+              >
+                {cleanUrl}
+                <ExternalLink size={11} className="inline ml-0.5 shrink-0 opacity-80" />
+              </a>
+              {trailingPunct}
+            </React.Fragment>
+          );
+        }
+        return part;
+      })}
+    </>
   );
 }
 
@@ -628,7 +670,7 @@ export default function App() {
     ...DEFAULT_TYPES,
     ...(savedCustomTags.types || []),
     ...projects.flatMap(p => toArray(p.type))
-  ])).filter(Boolean), [projects, savedCustomTags]);
+  ])).filter(t => t && t.toLowerCase() !== 'any'), [projects, savedCustomTags]);
 
   const toggleFilter = (category: keyof FilterState, value: string) => {
     setFilters(prev => {
@@ -762,7 +804,7 @@ export default function App() {
       locations: toArray(project.location).length > 0 ? toArray(project.location) : ['Any'],
       goals: toArray(project.goal).length > 0 ? toArray(project.goal) : ['Any'],
       seasonals: toArray(project.seasonal).length > 0 ? toArray(project.seasonal) : ['Any'],
-      types: toArray(project.type),
+      types: toArray(project.type).filter(t => t && t.toLowerCase() !== 'any'),
       examples: project.examples || '',
       resources: project.resources || ''
     });
@@ -1142,6 +1184,7 @@ export default function App() {
         </section>
       </main>
 
+      
       {/* EXPANDED PROJECT DETAILS MODAL */}
       {viewingProject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setViewingProject(null)}>
@@ -1206,11 +1249,13 @@ export default function App() {
                 Project Description
               </h4>
               <div className="bg-neutral-50 border-2 border-neutral-200 rounded-lg p-3.5 text-xs sm:text-sm text-neutral-800 leading-relaxed whitespace-pre-wrap">
-                {viewingProject.description?.trim() || ''}
+                {viewingProject.description?.trim() ? (
+                  <ClickableText text={viewingProject.description.trim()} />
+                ) : ''}
               </div>
             </div>
 
-            {/* Examples & Resources (Optional Fields) */}
+            {/* Examples & Resources (Optional Fields with Clickable Links) */}
             {(viewingProject.examples?.trim() || viewingProject.resources?.trim()) && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
                 {viewingProject.examples?.trim() && (
@@ -1219,7 +1264,7 @@ export default function App() {
                       <ExternalLink size={13} className="text-yellow-500" /> Examples
                     </h4>
                     <div className="bg-neutral-50 border-2 border-neutral-200 rounded-lg p-3.5 text-xs text-neutral-800 leading-relaxed whitespace-pre-wrap break-words">
-                      {viewingProject.examples.trim()}
+                      <ClickableText text={viewingProject.examples.trim()} />
                     </div>
                   </div>
                 )}
@@ -1230,7 +1275,7 @@ export default function App() {
                       <Folder size={13} className="text-yellow-500" /> Resources
                     </h4>
                     <div className="bg-neutral-50 border-2 border-neutral-200 rounded-lg p-3.5 text-xs text-neutral-800 leading-relaxed whitespace-pre-wrap break-words">
-                      {viewingProject.resources.trim()}
+                      <ClickableText text={viewingProject.resources.trim()} />
                     </div>
                   </div>
                 )}
