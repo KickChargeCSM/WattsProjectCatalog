@@ -117,7 +117,6 @@ function RegionKeyBanner({ isCollapsible = false }: { isCollapsible?: boolean })
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <div className="bg-yellow-400 p-1 rounded border border-black">
-            <Map size={14} className="text-black" />
           </div>
           <span className="text-xs font-black uppercase tracking-wider text-yellow-400">
             Region Key Reference
@@ -534,11 +533,11 @@ export default function App() {
     description: '',
     watts: '',
     isCustomQuote: false,
-    industries: [DEFAULT_INDUSTRIES.find(i => i !== 'Any') || 'Electric'],
-    locations: [DEFAULT_LOCATIONS.find(l => l !== 'Any') || 'Northeast'],
-    goals: [DEFAULT_GOALS.find(g => g !== 'Any') || 'Recruitment'],
-    seasonals: [DEFAULT_SEASONALS.find(s => s !== 'Any') || 'General Holiday'],
-    types: [DEFAULT_TYPES.find(t => t !== 'Any') || 'Collateral'],
+    industries: ['Any'],
+    locations: ['Any'],
+    goals: ['Any'],
+    seasonals: ['Any'],
+    types: [],
     examples: '',
     resources: ''
   });
@@ -739,11 +738,11 @@ export default function App() {
       description: '',
       watts: '',
       isCustomQuote: false,
-      industries: [DEFAULT_INDUSTRIES.find(i => i !== 'Any') || 'Electric'],
-      locations: [DEFAULT_LOCATIONS.find(l => l !== 'Any') || 'Northeast'],
-      goals: [DEFAULT_GOALS.find(g => g !== 'Any') || 'Recruitment'],
-      seasonals: [DEFAULT_SEASONALS.find(s => s !== 'Any') || 'General Holiday'],
-      types: [DEFAULT_TYPES.find(t => t !== 'Any') || 'Collateral'],
+      industries: ['Any'],
+      locations: ['Any'],
+      goals: ['Any'],
+      seasonals: ['Any'],
+      types: [],
       examples: '',
       resources: ''
     });
@@ -759,10 +758,10 @@ export default function App() {
       description: project.description || '',
       watts: isQuote ? '' : String(project.watts || ''),
       isCustomQuote: isQuote,
-      industries: toArray(project.industry).length > 0 ? toArray(project.industry) : [DEFAULT_INDUSTRIES.find(i => i !== 'Any') || 'Electric'],
-      locations: toArray(project.location),
-      goals: toArray(project.goal),
-      seasonals: toArray(project.seasonal),
+      industries: toArray(project.industry).length > 0 ? toArray(project.industry) : ['Any'],
+      locations: toArray(project.location).length > 0 ? toArray(project.location) : ['Any'],
+      goals: toArray(project.goal).length > 0 ? toArray(project.goal) : ['Any'],
+      seasonals: toArray(project.seasonal).length > 0 ? toArray(project.seasonal) : ['Any'],
       types: toArray(project.type),
       examples: project.examples || '',
       resources: project.resources || ''
@@ -782,16 +781,25 @@ export default function App() {
   const handleSaveProject = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!formData.name.trim()) {
+      alert("Please enter a Project Name.");
+      return;
+    }
+    if (!formData.isCustomQuote && !formData.watts) {
+      alert("Please enter Watts or select Quote.");
+      return;
+    }
+    if (formData.types.length === 0) {
+      alert("Please select at least one Project Type before moving on.");
+      return;
+    }
     if (
-      !formData.name.trim() || 
-      (!formData.isCustomQuote && !formData.watts) || 
       formData.industries.length === 0 || 
       formData.locations.length === 0 || 
       formData.goals.length === 0 || 
-      formData.seasonals.length === 0 || 
-      formData.types.length === 0
+      formData.seasonals.length === 0
     ) {
-      alert("Please fill in all required fields and select at least one option for Industry, Location, Goal, Seasonal, and Type.");
+      alert("Please ensure Industry, Location, Goal, and Seasonal each have at least one selection (or 'Any').");
       return;
     }
 
@@ -1134,7 +1142,6 @@ export default function App() {
         </section>
       </main>
 
-      
       {/* EXPANDED PROJECT DETAILS MODAL */}
       {viewingProject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setViewingProject(null)}>
@@ -1432,7 +1439,6 @@ export default function App() {
                   className="w-full px-3 py-2 text-left flex items-center justify-between bg-black hover:bg-neutral-900 transition-colors select-none"
                 >
                   <div className="flex items-center gap-1.5 text-[11px] font-black uppercase text-yellow-400 tracking-wider">
-                    <Map size={13} className="text-yellow-400" />
                     <span>Region Key Reference (Need to check state locations?)</span>
                   </div>
                   <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-neutral-800 text-yellow-400 border border-neutral-700 flex items-center gap-1">
